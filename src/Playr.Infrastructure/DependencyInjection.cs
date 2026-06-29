@@ -27,6 +27,7 @@ public static class DependencyInjection
 
         services.AddScoped<Playr.Application.Auth.JwtTokenGenerator>();
         services.AddScoped<Playr.Application.Auth.IAuthService, Playr.Infrastructure.Auth.AuthService>();
+        services.AddScoped<Playr.Application.Profiles.IProfileService, Playr.Infrastructure.Profiles.ProfileService>();
 
         return services;
     }
