@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: playr-postgres
+    environment:
+      POSTGRES_DB: playr
+      POSTGRES_USER: playr
+      POSTGRES_PASSWORD: playr_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - playr-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  playr-postgres-data:

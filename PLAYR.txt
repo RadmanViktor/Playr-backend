@@ -1,0 +1,76 @@
+I want you to help me start building a web application called PLAYR.
+
+## Product idea
+
+PLAYR is a social gaming platform where users can document their gaming journey, share what they are currently playing, and find other players with similar gaming interests.
+
+The core idea is:
+
+> PLAYR — Share your journey. Find your people.
+
+Users should be able to create an account and have their own public profile page. On their profile, they can create posts/logs about games they are playing. A post can include an image, the game title, and a text where the user writes what they like, dislike, what happened during the session, progress, achievements, or general thoughts.
+
+A big goal of the app is to help people in the gaming world connect. Many gamers feel lonely or struggle to find others to play with. PLAYR should help users discover other players based on common interests, games, platforms, language, region, playstyle, and whether they are looking for people to play with.
+
+
+## Theme
+  - dark theme. Gaming feeling but also like fresh and not TO nerdy. Here you can come up with some ideas for theming.
+
+## Tech stack
+
+I want the project to use:
+
+- Frontend: Angular
+- Backend: .NET / ASP.NET Core Web API
+- Database: PostgreSQL
+- ORM: Entity Framework Core
+- Authentication: JWT-based authentication
+- API style: REST API
+- Suggested architecture: Clean Architecture or a simple layered architecture that is understandable for a solo developer
+
+## MVP requirements
+
+For version 1, focus on these features:
+
+### Authentication
+- Register user
+- Login user
+- JWT authentication
+- Get current logged-in user
+
+Version 2
+ - The user should be able to create post on their own page. Like Facebook. Their you have a profile and you have your own "profile page"
+	the post can be uploaded image with text or short videos. 
+		Each post should have:
+
+- Mood/status, for example Enjoying, Frustrated, Completed, NeedHelp
+- Created date
+
+
+### User profile
+Each user should have:
+- Username
+- Display name
+- Bio
+- Avatar URL
+- Region
+- Languages
+- Platforms, for example PC, Xbox, PlayStation, Switch
+- External links, for example Steam, Twitch, YouTube, Discord
+- Currently playing games
+- Looking-for-players status
+
+
+###
+
+Future features 
+	 - Users should also be able to link to external gaming/social services like Twitch, Steam, YouTube, Discord, etc.
+	 - There should also be a discussion/thread section where users can create gaming-related threads. For example:
+- Talk about specific games
+- Ask for help
+- Discuss gaming problems
+- Ask for recommendations
+- Share opinions
+- Find players
+
+Later, I may want to add friends and private chat, but I do not want to start with that immediately because it adds complexity.
