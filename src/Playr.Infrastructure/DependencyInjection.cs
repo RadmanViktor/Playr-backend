@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using Playr.Domain.Identity;
 using Playr.Infrastructure.Data;
 
@@ -14,7 +15,15 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
-        services.AddDbContext<PlayrDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddSingleton(_ =>
+        {
+            var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+            dataSourceBuilder.EnableDynamicJson(jsonbClrTypes: new[] { typeof(Dictionary<string, string>) });
+            return dataSourceBuilder.Build();
+        });
+
+        services.AddDbContext<PlayrDbContext>((serviceProvider, options) =>
+            options.UseNpgsql(serviceProvider.GetRequiredService<NpgsqlDataSource>()));
 
         services.AddIdentityCore<ApplicationUser>(options =>
             {

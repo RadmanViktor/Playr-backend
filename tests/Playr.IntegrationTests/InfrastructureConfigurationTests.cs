@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Playr.Application.Auth;
 using Playr.Domain.Identity;
 using Playr.Domain.Profiles;
 using Playr.Infrastructure;
@@ -62,5 +63,42 @@ public class InfrastructureConfigurationTests
         provider.GetService<UserManager<ApplicationUser>>().Should().NotBeNull();
         provider.GetService<RoleManager<IdentityRole<Guid>>>().Should().NotBeNull();
         provider.GetService<PlayrDbContext>().Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task RegisterAsync_persists_profile_jsonb_defaults_to_postgres()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Port=5432;Database=playr;Username=playr;Password=playr_dev_password",
+                ["Jwt:Issuer"] = "PLAYR",
+                ["Jwt:Audience"] = "PLAYR",
+                ["Jwt:SigningKey"] = "replace-this-development-key-with-user-secrets-before-production",
+                ["Jwt:ExpirationMinutes"] = "60"
+            })
+            .Build();
+        services.AddInfrastructure(configuration);
+
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<PlayrDbContext>();
+        await dbContext.Database.MigrateAsync();
+        var uniqueId = Guid.NewGuid().ToString("N");
+        var username = $"jsonbUser{uniqueId}"[..32];
+        var email = $"jsonb-{uniqueId}@example.com";
+
+        var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
+
+        var result = await authService.RegisterAsync(
+            new RegisterUserCommand(email, username, "StrongPassword123!"),
+            CancellationToken.None);
+
+        var profile = await dbContext.UserProfiles.SingleAsync(p => p.UserId == result.Id, CancellationToken.None);
+        profile.ExternalLinks.Should().BeEmpty();
+        profile.Languages.Should().BeEmpty();
+        profile.Platforms.Should().BeEmpty();
+        profile.CurrentlyPlayingGames.Should().BeEmpty();
     }
 }
