@@ -25,6 +25,9 @@ public static class DependencyInjection
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<PlayrDbContext>();
 
+        services.AddScoped<Playr.Application.Auth.JwtTokenGenerator>();
+        services.AddScoped<Playr.Application.Auth.IAuthService, Playr.Infrastructure.Auth.AuthService>();
+
         return services;
     }
 }

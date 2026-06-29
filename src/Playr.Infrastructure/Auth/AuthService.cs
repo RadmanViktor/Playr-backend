@@ -1,0 +1,71 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Playr.Application.Auth;
+using Playr.Domain.Identity;
+using Playr.Domain.Profiles;
+using Playr.Infrastructure.Data;
+
+namespace Playr.Infrastructure.Auth;
+
+public sealed class AuthService(
+    UserManager<ApplicationUser> userManager,
+    PlayrDbContext dbContext,
+    JwtTokenGenerator tokenGenerator) : IAuthService
+{
+    public async Task<AuthUserDto> RegisterAsync(RegisterUserCommand command, CancellationToken cancellationToken)
+    {
+        var usernameExists = await userManager.Users.AnyAsync(u => u.NormalizedUserName == command.Username.ToUpperInvariant(), cancellationToken);
+        if (usernameExists)
+        {
+            throw new InvalidOperationException("Username already exists.");
+        }
+
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = command.Email,
+            UserName = command.Username
+        };
+
+        var result = await userManager.CreateAsync(user, command.Password);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(string.Join(" ", result.Errors.Select(e => e.Description)));
+        }
+
+        var profile = new UserProfile
+        {
+            UserId = user.Id,
+            Username = command.Username,
+            DisplayName = command.Username
+        };
+
+        dbContext.UserProfiles.Add(profile);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new AuthUserDto(user.Id, user.Email!, user.UserName!, profile.DisplayName);
+    }
+
+    public async Task<AuthResult> LoginAsync(string usernameOrEmail, string password, CancellationToken cancellationToken)
+    {
+        var normalized = usernameOrEmail.ToUpperInvariant();
+        var user = await userManager.Users.FirstOrDefaultAsync(
+            u => u.NormalizedUserName == normalized || u.NormalizedEmail == normalized,
+            cancellationToken);
+
+        if (user is null || !await userManager.CheckPasswordAsync(user, password))
+        {
+            throw new UnauthorizedAccessException("Invalid username/email or password.");
+        }
+
+        return tokenGenerator.Generate(user);
+    }
+
+    public async Task<AuthUserDto?> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await userManager.Users.Include(u => u.Profile).FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        return user is null || user.Profile is null
+            ? null
+            : new AuthUserDto(user.Id, user.Email!, user.UserName!, user.Profile.DisplayName);
+    }
+}
