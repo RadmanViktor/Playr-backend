@@ -21,10 +21,15 @@ public sealed class ProfilesController(IProfileService profileService) : Control
     [HttpPut("me")]
     public async Task<ActionResult<ProfileResponse>> UpdateMe(UpdateProfileRequest request, CancellationToken cancellationToken)
     {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
         try
         {
             var profile = await profileService.UpdateCurrentUserAsync(
-                User.GetUserId(),
+                userId,
                 new UpdateProfileCommand(
                     request.DisplayName,
                     request.Bio,

@@ -1,10 +1,14 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
+using System.Security.Claims;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Playr.Api.Controllers;
+using Playr.Api.Models.Profiles;
 using Playr.Application.Profiles;
 using Playr.Infrastructure;
 
@@ -74,6 +78,27 @@ public class ProfileEndpointConfigurationTests
             .Should().Contain("me");
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("not-a-guid")]
+    public async Task UpdateMe_returns_unauthorized_when_user_id_claim_is_missing_or_invalid(string? userIdClaim)
+    {
+        var controller = new ProfilesController(new ThrowingProfileService())
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = CreateUser(userIdClaim) }
+            }
+        };
+
+        var result = await controller.UpdateMe(
+            new UpdateProfileRequest("Player", null, null, null, null, null, null, null, false),
+            CancellationToken.None);
+
+        var unauthorized = result.Result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
+        unauthorized.Value.Should().BeEquivalentTo(new { error = "User id claim is missing or invalid." });
+    }
+
     private static void AssertRecordParameter<TAttribute>(Type type, string parameterName)
         where TAttribute : Attribute
     {
@@ -85,5 +110,23 @@ public class ProfileEndpointConfigurationTests
     {
         var parameter = type.GetConstructors().Single().GetParameters().Single(p => p.Name == parameterName);
         return parameter.GetCustomAttribute<TAttribute>()!;
+    }
+
+    private static ClaimsPrincipal CreateUser(string? userIdClaim)
+    {
+        var claims = userIdClaim is null ? [] : new[] { new Claim("sub", userIdClaim) };
+        return new ClaimsPrincipal(new ClaimsIdentity(claims));
+    }
+
+    private sealed class ThrowingProfileService : IProfileService
+    {
+        public Task<ProfileDto?> GetByUsernameAsync(string username, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
+
+        public Task<ProfileDto?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
+
+        public Task<ProfileDto> UpdateCurrentUserAsync(Guid userId, UpdateProfileCommand command, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
     }
 }

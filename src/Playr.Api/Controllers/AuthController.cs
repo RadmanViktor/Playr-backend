@@ -45,7 +45,12 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     [HttpGet("me")]
     public async Task<ActionResult<UserResponse>> Me(CancellationToken cancellationToken)
     {
-        var user = await authService.GetCurrentUserAsync(User.GetUserId(), cancellationToken);
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        var user = await authService.GetCurrentUserAsync(userId, cancellationToken);
         return user is null ? Unauthorized() : Ok(ToResponse(user));
     }
 
