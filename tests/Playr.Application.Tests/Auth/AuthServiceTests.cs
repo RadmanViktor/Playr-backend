@@ -68,12 +68,13 @@ public sealed class AuthServiceTests
 
         var act = () => fixture.Service.LoginAsync("player", "wrong-password", CancellationToken.None);
 
-        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        await act.Should().ThrowAsync<UnauthorizedAccessException>()
+            .WithMessage("Invalid username/email or password.");
         (await fixture.UserManager.GetAccessFailedCountAsync(user)).Should().Be(1);
     }
 
     [Fact]
-    public async Task LoginAsync_WhenUserIsLockedOut_DoesNotIssueToken()
+    public async Task LoginAsync_WhenUserIsLockedOut_ReturnsStablePublicError()
     {
         await using var fixture = await AuthFixture.CreateAsync();
         var user = new ApplicationUser
@@ -88,7 +89,7 @@ public sealed class AuthServiceTests
         var act = () => fixture.Service.LoginAsync("locked", "Password123", CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>()
-            .WithMessage("User account is locked out.");
+            .WithMessage("Invalid username/email or password.");
     }
 
     [Fact]

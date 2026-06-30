@@ -12,6 +12,8 @@ public sealed class AuthService(
     PlayrDbContext dbContext,
     JwtTokenGenerator tokenGenerator) : IAuthService
 {
+    private const string LoginFailureMessage = "Invalid username/email or password.";
+
     public async Task<AuthUserDto> RegisterAsync(RegisterUserCommand command, CancellationToken cancellationToken)
     {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
@@ -68,18 +70,18 @@ public sealed class AuthService(
 
         if (user is null)
         {
-            throw new UnauthorizedAccessException("Invalid username/email or password.");
+            throw new UnauthorizedAccessException(LoginFailureMessage);
         }
 
         if (await userManager.IsLockedOutAsync(user))
         {
-            throw new UnauthorizedAccessException("User account is locked out.");
+            throw new UnauthorizedAccessException(LoginFailureMessage);
         }
 
         if (!await userManager.CheckPasswordAsync(user, password))
         {
             await userManager.AccessFailedAsync(user);
-            throw new UnauthorizedAccessException("Invalid username/email or password.");
+            throw new UnauthorizedAccessException(LoginFailureMessage);
         }
 
         await userManager.ResetAccessFailedCountAsync(user);
