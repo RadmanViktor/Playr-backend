@@ -14,6 +14,8 @@ public sealed class AuthService(
 {
     public async Task<AuthUserDto> RegisterAsync(RegisterUserCommand command, CancellationToken cancellationToken)
     {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
         var usernameExists = await userManager.Users.AnyAsync(u => u.NormalizedUserName == command.Username.ToUpperInvariant(), cancellationToken);
         if (usernameExists)
         {
@@ -41,7 +43,18 @@ public sealed class AuthService(
         };
 
         dbContext.UserProfiles.Add(profile);
-        await dbContext.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            await userManager.DeleteAsync(user);
+            throw;
+        }
 
         return new AuthUserDto(user.Id, user.Email!, user.UserName!, profile.DisplayName);
     }
@@ -53,10 +66,23 @@ public sealed class AuthService(
             u => u.NormalizedUserName == normalized || u.NormalizedEmail == normalized,
             cancellationToken);
 
-        if (user is null || !await userManager.CheckPasswordAsync(user, password))
+        if (user is null)
         {
             throw new UnauthorizedAccessException("Invalid username/email or password.");
         }
+
+        if (await userManager.IsLockedOutAsync(user))
+        {
+            throw new UnauthorizedAccessException("User account is locked out.");
+        }
+
+        if (!await userManager.CheckPasswordAsync(user, password))
+        {
+            await userManager.AccessFailedAsync(user);
+            throw new UnauthorizedAccessException("Invalid username/email or password.");
+        }
+
+        await userManager.ResetAccessFailedCountAsync(user);
 
         return tokenGenerator.Generate(user);
     }
