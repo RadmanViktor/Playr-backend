@@ -24,6 +24,36 @@ public sealed class ProfileServiceTests
     }
 
     [Fact]
+    public async Task UpdateCurrentUserAsync_WhenDisplayNameIsTooLong_ThrowsInvalidOperationException()
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with { DisplayName = new string('a', 65) };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Display name cannot be longer than 64 characters.");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("/avatars/player.png")]
+    [InlineData("not a url")]
+    [InlineData("ftp://example.com/avatar.png")]
+    public async Task UpdateCurrentUserAsync_WhenAvatarUrlIsNotAbsoluteHttpUrl_ThrowsInvalidOperationException(string avatarUrl)
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with { AvatarUrl = avatarUrl };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Avatar URL must be an absolute HTTP or HTTPS URL.");
+    }
+
+    [Fact]
     public async Task UpdateCurrentUserAsync_WhenListContainsNull_ThrowsInvalidOperationException()
     {
         await using var fixture = await ProfileFixture.CreateAsync();
@@ -181,6 +211,25 @@ public sealed class ProfileServiceTests
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage(expectedMessage);
+    }
+
+    [Theory]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("/profiles/player")]
+    [InlineData("not a url")]
+    [InlineData("ftp://example.com/player")]
+    public async Task UpdateCurrentUserAsync_WhenExternalLinkValueIsNotAbsoluteHttpUrl_ThrowsInvalidOperationException(string value)
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with
+        {
+            ExternalLinks = new Dictionary<string, string> { ["Steam"] = value }
+        };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("External link values must be absolute HTTP or HTTPS URLs.");
     }
 
     private sealed class ProfileFixture : IAsyncDisposable

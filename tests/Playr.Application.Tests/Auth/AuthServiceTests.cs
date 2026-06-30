@@ -15,6 +15,19 @@ namespace Playr.Application.Tests.Auth;
 public sealed class AuthServiceTests
 {
     [Fact]
+    public async Task RegisterAsync_WhenIdentityRejectsPassword_ReturnsStablePublicError()
+    {
+        await using var fixture = await AuthFixture.CreateAsync();
+
+        var act = () => fixture.Service.RegisterAsync(
+            new RegisterUserCommand("player@example.com", "player", "short"),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Registration failed.");
+    }
+
+    [Fact]
     public async Task RegisterAsync_WhenProfileInsertFails_RemovesIdentityUser()
     {
         await using var fixture = await AuthFixture.CreateAsync();

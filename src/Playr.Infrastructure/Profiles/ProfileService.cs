@@ -12,6 +12,7 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
     private const int MaxExternalLinks = 10;
     private const int MaxExternalLinkKeyLength = 64;
     private const int MaxExternalLinkValueLength = 500;
+    private const int MaxDisplayNameLength = 64;
 
     public async Task<ProfileDto?> GetByUsernameAsync(string username, CancellationToken cancellationToken)
     {
@@ -36,17 +37,23 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
             throw new InvalidOperationException("Display name is required.");
         }
 
+        if (displayName.Length > MaxDisplayNameLength)
+        {
+            throw new InvalidOperationException($"Display name cannot be longer than {MaxDisplayNameLength} characters.");
+        }
+
         var languages = NormalizeList(command.Languages, nameof(command.Languages));
         var platforms = NormalizeList(command.Platforms, nameof(command.Platforms));
         var currentlyPlayingGames = NormalizeList(command.CurrentlyPlayingGames, nameof(command.CurrentlyPlayingGames));
         var externalLinks = NormalizeExternalLinks(command.ExternalLinks);
+        var avatarUrl = NormalizeOptionalHttpUrl(command.AvatarUrl, "Avatar URL");
 
         var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken)
             ?? throw new InvalidOperationException("Profile was not found.");
 
         profile.DisplayName = displayName;
         profile.Bio = command.Bio?.Trim();
-        profile.AvatarUrl = command.AvatarUrl?.Trim();
+        profile.AvatarUrl = avatarUrl;
         profile.Region = command.Region?.Trim();
         profile.Languages = languages;
         profile.Platforms = platforms;
@@ -141,6 +148,11 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
                 throw new InvalidOperationException($"External link values cannot be longer than {MaxExternalLinkValueLength} characters.");
             }
 
+            if (!IsAbsoluteHttpUrl(value))
+            {
+                throw new InvalidOperationException("External link values must be absolute HTTP or HTTPS URLs.");
+            }
+
             if (!normalized.TryAdd(key, value))
             {
                 throw new InvalidOperationException("External links cannot contain duplicate keys.");
@@ -149,4 +161,24 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
 
         return normalized.ToDictionary(pair => pair.Key, pair => pair.Value);
     }
+
+    private static string? NormalizeOptionalHttpUrl(string? value, string name)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        if (!IsAbsoluteHttpUrl(trimmed))
+        {
+            throw new InvalidOperationException($"{name} must be an absolute HTTP or HTTPS URL.");
+        }
+
+        return trimmed;
+    }
+
+    private static bool IsAbsoluteHttpUrl(string value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 }
