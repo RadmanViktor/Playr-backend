@@ -14,6 +14,7 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
     private const int MaxExternalLinkValueLength = 500;
     private const int MaxDisplayNameLength = 64;
     private const int MaxBioLength = 500;
+    private const int MaxAvatarUrlLength = 500;
     private const int MaxRegionLength = 64;
 
     public async Task<ProfileDto?> GetByUsernameAsync(string username, CancellationToken cancellationToken)
@@ -48,7 +49,7 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
         var platforms = NormalizeList(command.Platforms, nameof(command.Platforms));
         var currentlyPlayingGames = NormalizeList(command.CurrentlyPlayingGames, nameof(command.CurrentlyPlayingGames));
         var externalLinks = NormalizeExternalLinks(command.ExternalLinks);
-        var avatarUrl = NormalizeOptionalHttpUrl(command.AvatarUrl, "Avatar URL");
+        var avatarUrl = NormalizeOptionalHttpUrl(command.AvatarUrl, "Avatar URL", MaxAvatarUrlLength);
         var bio = NormalizeOptionalText(command.Bio, "Bio", MaxBioLength);
         var region = NormalizeOptionalText(command.Region, "Region", MaxRegionLength);
 
@@ -166,7 +167,7 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
         return normalized.ToDictionary(pair => pair.Key, pair => pair.Value);
     }
 
-    private static string? NormalizeOptionalHttpUrl(string? value, string name)
+    private static string? NormalizeOptionalHttpUrl(string? value, string name, int maxLength)
     {
         if (value is null)
         {
@@ -174,6 +175,11 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
         }
 
         var trimmed = value.Trim();
+        if (trimmed.Length > maxLength)
+        {
+            throw new InvalidOperationException($"{name} cannot be longer than {maxLength} characters.");
+        }
+
         if (!IsAbsoluteHttpUrl(trimmed))
         {
             throw new InvalidOperationException($"{name} must be an absolute HTTP or HTTPS URL.");

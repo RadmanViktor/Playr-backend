@@ -77,6 +77,18 @@ public sealed class ProfileServiceTests
     }
 
     [Fact]
+    public async Task UpdateCurrentUserAsync_WhenAvatarUrlIsTooLongAfterTrim_ThrowsInvalidOperationException()
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with { AvatarUrl = $" https://example.com/{new string('a', 481)} " };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Avatar URL cannot be longer than 500 characters.");
+    }
+
+    [Fact]
     public async Task UpdateCurrentUserAsync_WhenListContainsNull_ThrowsInvalidOperationException()
     {
         await using var fixture = await ProfileFixture.CreateAsync();
