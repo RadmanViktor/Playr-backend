@@ -13,6 +13,8 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
     private const int MaxExternalLinkKeyLength = 64;
     private const int MaxExternalLinkValueLength = 500;
     private const int MaxDisplayNameLength = 64;
+    private const int MaxBioLength = 500;
+    private const int MaxRegionLength = 64;
 
     public async Task<ProfileDto?> GetByUsernameAsync(string username, CancellationToken cancellationToken)
     {
@@ -47,14 +49,16 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
         var currentlyPlayingGames = NormalizeList(command.CurrentlyPlayingGames, nameof(command.CurrentlyPlayingGames));
         var externalLinks = NormalizeExternalLinks(command.ExternalLinks);
         var avatarUrl = NormalizeOptionalHttpUrl(command.AvatarUrl, "Avatar URL");
+        var bio = NormalizeOptionalText(command.Bio, "Bio", MaxBioLength);
+        var region = NormalizeOptionalText(command.Region, "Region", MaxRegionLength);
 
         var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken)
             ?? throw new InvalidOperationException("Profile was not found.");
 
         profile.DisplayName = displayName;
-        profile.Bio = command.Bio?.Trim();
+        profile.Bio = bio;
         profile.AvatarUrl = avatarUrl;
-        profile.Region = command.Region?.Trim();
+        profile.Region = region;
         profile.Languages = languages;
         profile.Platforms = platforms;
         profile.ExternalLinks = externalLinks;
@@ -173,6 +177,22 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
         if (!IsAbsoluteHttpUrl(trimmed))
         {
             throw new InvalidOperationException($"{name} must be an absolute HTTP or HTTPS URL.");
+        }
+
+        return trimmed;
+    }
+
+    private static string? NormalizeOptionalText(string? value, string name, int maxLength)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Length > maxLength)
+        {
+            throw new InvalidOperationException($"{name} cannot be longer than {maxLength} characters.");
         }
 
         return trimmed;

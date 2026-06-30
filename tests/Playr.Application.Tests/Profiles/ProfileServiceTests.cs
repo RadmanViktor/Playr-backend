@@ -36,6 +36,29 @@ public sealed class ProfileServiceTests
     }
 
     [Theory]
+    [InlineData(nameof(UpdateProfileCommand.Bio), 501, "Bio cannot be longer than 500 characters.")]
+    [InlineData(nameof(UpdateProfileCommand.Region), 65, "Region cannot be longer than 64 characters.")]
+    public async Task UpdateCurrentUserAsync_WhenTextFieldIsTooLongAfterTrim_ThrowsInvalidOperationException(
+        string propertyName,
+        int length,
+        string expectedMessage)
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var value = $" {new string('a', length)} ";
+        var command = propertyName switch
+        {
+            nameof(UpdateProfileCommand.Bio) => fixture.ValidCommand() with { Bio = value },
+            nameof(UpdateProfileCommand.Region) => fixture.ValidCommand() with { Region = value },
+            _ => throw new InvalidOperationException("Unexpected property name.")
+        };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage(expectedMessage);
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("javascript:alert(1)")]
