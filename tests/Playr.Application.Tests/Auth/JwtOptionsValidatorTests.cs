@@ -6,6 +6,25 @@ namespace Playr.Application.Tests.Auth;
 public sealed class JwtOptionsValidatorTests
 {
     [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void ValidateForStartup_WhenExpirationMinutesIsNonPositive_Throws(int expirationMinutes)
+    {
+        var options = new JwtOptions
+        {
+            Issuer = "PLAYR",
+            Audience = "PLAYR",
+            SigningKey = "valid-signing-key-with-at-least-32-chars",
+            ExpirationMinutes = expirationMinutes
+        };
+
+        var act = () => JwtOptionsValidator.ValidateForStartup(options);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("JWT expiration minutes must be greater than zero.");
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("replace-this-development-key-with-user-secrets-before-production")]

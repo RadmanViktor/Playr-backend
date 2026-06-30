@@ -7,6 +7,12 @@ namespace Playr.Infrastructure.Profiles;
 
 public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
 {
+    private const int MaxListItems = 20;
+    private const int MaxListItemLength = 64;
+    private const int MaxExternalLinks = 10;
+    private const int MaxExternalLinkKeyLength = 64;
+    private const int MaxExternalLinkValueLength = 500;
+
     public async Task<ProfileDto?> GetByUsernameAsync(string username, CancellationToken cancellationToken)
     {
         var normalized = username.ToUpperInvariant();
@@ -24,20 +30,21 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
 
     public async Task<ProfileDto> UpdateCurrentUserAsync(Guid userId, UpdateProfileCommand command, CancellationToken cancellationToken)
     {
+        var displayName = command.DisplayName.Trim();
+        if (displayName.Length == 0)
+        {
+            throw new InvalidOperationException("Display name is required.");
+        }
+
         var languages = NormalizeList(command.Languages, nameof(command.Languages));
         var platforms = NormalizeList(command.Platforms, nameof(command.Platforms));
         var currentlyPlayingGames = NormalizeList(command.CurrentlyPlayingGames, nameof(command.CurrentlyPlayingGames));
         var externalLinks = NormalizeExternalLinks(command.ExternalLinks);
 
-        if (currentlyPlayingGames.Count > 20)
-        {
-            throw new InvalidOperationException("Currently playing games cannot contain more than 20 items.");
-        }
-
         var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken)
             ?? throw new InvalidOperationException("Profile was not found.");
 
-        profile.DisplayName = command.DisplayName.Trim();
+        profile.DisplayName = displayName;
         profile.Bio = command.Bio?.Trim();
         profile.AvatarUrl = command.AvatarUrl?.Trim();
         profile.Region = command.Region?.Trim();
@@ -79,6 +86,16 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
             throw new InvalidOperationException($"{name} cannot contain null values.");
         }
 
+        if (values.Count > MaxListItems)
+        {
+            throw new InvalidOperationException($"{name} cannot contain more than {MaxListItems} items.");
+        }
+
+        if (values.Any(value => value.Trim().Length > MaxListItemLength))
+        {
+            throw new InvalidOperationException($"{name} items cannot be longer than {MaxListItemLength} characters.");
+        }
+
         return values.Select(value => value.Trim()).Where(value => value.Length > 0).Distinct().ToList();
     }
 
@@ -94,6 +111,11 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
             throw new InvalidOperationException("External links cannot contain null keys or values.");
         }
 
+        if (externalLinks.Count > MaxExternalLinks)
+        {
+            throw new InvalidOperationException($"External links cannot contain more than {MaxExternalLinks} items.");
+        }
+
         var normalized = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var pair in externalLinks)
         {
@@ -101,7 +123,22 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
             var value = pair.Value.Trim();
             if (key.Length == 0)
             {
-                continue;
+                throw new InvalidOperationException("External link keys are required.");
+            }
+
+            if (value.Length == 0)
+            {
+                throw new InvalidOperationException("External link values are required.");
+            }
+
+            if (key.Length > MaxExternalLinkKeyLength)
+            {
+                throw new InvalidOperationException($"External link keys cannot be longer than {MaxExternalLinkKeyLength} characters.");
+            }
+
+            if (value.Length > MaxExternalLinkValueLength)
+            {
+                throw new InvalidOperationException($"External link values cannot be longer than {MaxExternalLinkValueLength} characters.");
             }
 
             if (!normalized.TryAdd(key, value))

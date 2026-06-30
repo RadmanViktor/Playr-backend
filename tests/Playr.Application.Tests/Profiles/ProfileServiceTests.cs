@@ -12,6 +12,18 @@ namespace Playr.Application.Tests.Profiles;
 public sealed class ProfileServiceTests
 {
     [Fact]
+    public async Task UpdateCurrentUserAsync_WhenDisplayNameIsWhitespace_ThrowsInvalidOperationException()
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with { DisplayName = "   " };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Display name is required.");
+    }
+
+    [Fact]
     public async Task UpdateCurrentUserAsync_WhenListContainsNull_ThrowsInvalidOperationException()
     {
         await using var fixture = await ProfileFixture.CreateAsync();
@@ -21,6 +33,63 @@ public sealed class ProfileServiceTests
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Languages cannot contain null values.");
+    }
+
+    [Theory]
+    [InlineData(nameof(UpdateProfileCommand.Languages))]
+    [InlineData(nameof(UpdateProfileCommand.Platforms))]
+    [InlineData(nameof(UpdateProfileCommand.CurrentlyPlayingGames))]
+    public async Task UpdateCurrentUserAsync_WhenListContainsOversizedItem_ThrowsInvalidOperationException(string propertyName)
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var value = new string('a', 65);
+        var command = propertyName switch
+        {
+            nameof(UpdateProfileCommand.Languages) => fixture.ValidCommand() with { Languages = [value] },
+            nameof(UpdateProfileCommand.Platforms) => fixture.ValidCommand() with { Platforms = [value] },
+            nameof(UpdateProfileCommand.CurrentlyPlayingGames) => fixture.ValidCommand() with { CurrentlyPlayingGames = [value] },
+            _ => throw new InvalidOperationException("Unexpected property name.")
+        };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"{propertyName} items cannot be longer than 64 characters.");
+    }
+
+    [Theory]
+    [InlineData(nameof(UpdateProfileCommand.Languages))]
+    [InlineData(nameof(UpdateProfileCommand.Platforms))]
+    public async Task UpdateCurrentUserAsync_WhenListContainsTooManyItems_ThrowsInvalidOperationException(string propertyName)
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var values = Enumerable.Range(1, 21).Select(index => $"item-{index}").ToArray();
+        var command = propertyName switch
+        {
+            nameof(UpdateProfileCommand.Languages) => fixture.ValidCommand() with { Languages = values },
+            nameof(UpdateProfileCommand.Platforms) => fixture.ValidCommand() with { Platforms = values },
+            _ => throw new InvalidOperationException("Unexpected property name.")
+        };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"{propertyName} cannot contain more than 20 items.");
+    }
+
+    [Fact]
+    public async Task UpdateCurrentUserAsync_WhenCurrentlyPlayingGamesContainsTooManyItems_ThrowsInvalidOperationException()
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with
+        {
+            CurrentlyPlayingGames = Enumerable.Range(1, 21).Select(index => $"game-{index}").ToArray()
+        };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("CurrentlyPlayingGames cannot contain more than 20 items.");
     }
 
     [Fact]
@@ -55,6 +124,63 @@ public sealed class ProfileServiceTests
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("External links cannot contain null keys or values.");
+    }
+
+    [Fact]
+    public async Task UpdateCurrentUserAsync_WhenExternalLinksContainTooManyItems_ThrowsInvalidOperationException()
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with
+        {
+            ExternalLinks = Enumerable.Range(1, 11).ToDictionary(index => $"link-{index}", _ => "https://example.com")
+        };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("External links cannot contain more than 10 items.");
+    }
+
+    [Theory]
+    [InlineData("", "https://example.com", "External link keys are required.")]
+    [InlineData("   ", "https://example.com", "External link keys are required.")]
+    [InlineData("Steam", "", "External link values are required.")]
+    [InlineData("Steam", "   ", "External link values are required.")]
+    public async Task UpdateCurrentUserAsync_WhenExternalLinkContainsEmptyKeyOrValue_ThrowsInvalidOperationException(
+        string key,
+        string value,
+        string expectedMessage)
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with
+        {
+            ExternalLinks = new Dictionary<string, string> { [key] = value }
+        };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage(expectedMessage);
+    }
+
+    [Theory]
+    [InlineData(65, 19, "External link keys cannot be longer than 64 characters.")]
+    [InlineData(5, 501, "External link values cannot be longer than 500 characters.")]
+    public async Task UpdateCurrentUserAsync_WhenExternalLinkContainsOversizedKeyOrValue_ThrowsInvalidOperationException(
+        int keyLength,
+        int valueLength,
+        string expectedMessage)
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with
+        {
+            ExternalLinks = new Dictionary<string, string> { [new string('k', keyLength)] = new string('v', valueLength) }
+        };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage(expectedMessage);
     }
 
     private sealed class ProfileFixture : IAsyncDisposable

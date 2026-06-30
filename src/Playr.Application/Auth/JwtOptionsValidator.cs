@@ -20,6 +20,11 @@ public static class JwtOptionsValidator
         {
             throw new InvalidOperationException("JWT signing key must be configured with a non-placeholder value of at least 32 characters.");
         }
+
+        if (options.ExpirationMinutes <= 0)
+        {
+            throw new InvalidOperationException("JWT expiration minutes must be greater than zero.");
+        }
     }
 
     private static bool IsInvalidSigningKey(string? signingKey)
