@@ -34,7 +34,9 @@ public sealed class AuthService(
         var result = await userManager.CreateAsync(user, command.Password);
         if (!result.Succeeded)
         {
-            throw new InvalidOperationException("Registration failed.");
+            var errorMessage = string.Join(" ", result.Errors.Select(e => e.Description));
+            throw new InvalidOperationException(
+                string.IsNullOrWhiteSpace(errorMessage) ? "Registration failed." : errorMessage);
         }
 
         var profile = new UserProfile
