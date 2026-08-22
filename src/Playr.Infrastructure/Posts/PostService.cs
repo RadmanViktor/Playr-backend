@@ -99,6 +99,26 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<PostDto>> GetByUsernameAsync(string username, CancellationToken cancellationToken)
+    {
+        var normalized = username.ToUpperInvariant();
+        var profile = await dbContext.UserProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Username.ToUpper() == normalized, cancellationToken);
+
+        if (profile is null)
+            return [];
+
+        var posts = await dbContext.Posts
+            .AsNoTracking()
+            .Where(p => p.AuthorId == profile.UserId)
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(FeedSize)
+            .ToListAsync(cancellationToken);
+
+        return await MapToPostDtoAsync(posts, cancellationToken);
+    }
+
     private async Task<IReadOnlyList<PostDto>> MapToPostDtoAsync(IList<Post> posts, CancellationToken cancellationToken)
     {
         var authorIds = posts.Select(p => p.AuthorId).Distinct().ToList();

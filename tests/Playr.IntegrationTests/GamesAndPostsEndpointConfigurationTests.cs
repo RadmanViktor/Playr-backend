@@ -138,6 +138,18 @@ public class GamesAndPostsEndpointConfigurationTests
         unauthorized.Value.Should().BeEquivalentTo(new { error = "User id claim is missing or invalid." });
     }
 
+    [Fact]
+    public void Profile_posts_endpoint_is_public()
+    {
+        var apiAssembly = typeof(Program).Assembly;
+        var controller = apiAssembly.GetType("Playr.Api.Controllers.ProfilesController");
+        controller.Should().NotBeNull();
+        controller!.GetMethods()
+            .Should().Contain(m =>
+                m.GetCustomAttribute<HttpGetAttribute>()?.Template == "{username}/posts" &&
+                m.GetCustomAttribute<AuthorizeAttribute>() == null);
+    }
+
     private sealed class ThrowingPostService : IPostService
     {
         public Task<PostDto> CreateAsync(Guid authorId, CreatePostCommand command, CancellationToken cancellationToken) =>
@@ -147,6 +159,8 @@ public class GamesAndPostsEndpointConfigurationTests
         public Task<PostDto> UpdateAsync(Guid postId, Guid requesterId, UpdatePostCommand command, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Should not be called.");
         public Task DeleteAsync(Guid postId, Guid requesterId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Should not be called.");
+        public Task<IReadOnlyList<PostDto>> GetByUsernameAsync(string username, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Should not be called.");
     }
 }
