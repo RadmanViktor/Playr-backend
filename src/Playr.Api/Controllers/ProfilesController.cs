@@ -1,14 +1,16 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Playr.Api.Extensions;
+using Playr.Api.Models.Posts;
 using Playr.Api.Models.Profiles;
+using Playr.Application.Posts;
 using Playr.Application.Profiles;
 
 namespace Playr.Api.Controllers;
 
 [ApiController]
 [Route("api/profiles")]
-public sealed class ProfilesController(IProfileService profileService) : ControllerBase
+public sealed class ProfilesController(IProfileService profileService, IPostService postService) : ControllerBase
 {
     [HttpGet("{username}")]
     public async Task<ActionResult<ProfileResponse>> GetByUsername(string username, CancellationToken cancellationToken)
@@ -48,6 +50,17 @@ public sealed class ProfilesController(IProfileService profileService) : Control
         {
             return BadRequest(new { error = ex.Message });
         }
+    }
+
+    [HttpGet("{username}/posts")]
+    public async Task<ActionResult<IReadOnlyList<PostResponse>>> GetPostsByUsername(
+        string username, CancellationToken cancellationToken)
+    {
+        var posts = await postService.GetByUsernameAsync(username, cancellationToken);
+        return Ok(posts.Select(p => new PostResponse(
+            p.Id, p.AuthorId, p.AuthorUsername, p.AuthorDisplayName, p.AuthorAvatarUrl,
+            p.GameId, p.GameName, p.GameCoverImageUrl, p.TextContent, p.Mood, p.CreatedAt
+        )).ToList());
     }
 
     private static ProfileResponse ToResponse(ProfileDto profile) => new(
