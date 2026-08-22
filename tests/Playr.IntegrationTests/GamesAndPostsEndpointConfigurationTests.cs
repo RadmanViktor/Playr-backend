@@ -83,11 +83,70 @@ public class GamesAndPostsEndpointConfigurationTests
         unauthorized.Value.Should().BeEquivalentTo(new { error = "User id claim is missing or invalid." });
     }
 
+    [Fact]
+    public void Posts_controller_has_put_and_delete_endpoints_requiring_auth()
+    {
+        var apiAssembly = typeof(Program).Assembly;
+        var controller = apiAssembly.GetType("Playr.Api.Controllers.PostsController");
+        controller.Should().NotBeNull();
+
+        // PUT /api/posts/{id} requires auth
+        controller!.GetMethods()
+            .Should().Contain(m => m.GetCustomAttribute<HttpPutAttribute>() != null
+                                && m.GetCustomAttribute<AuthorizeAttribute>() != null);
+
+        // DELETE /api/posts/{id} requires auth
+        controller.GetMethods()
+            .Should().Contain(m => m.GetCustomAttribute<HttpDeleteAttribute>() != null
+                                && m.GetCustomAttribute<AuthorizeAttribute>() != null);
+    }
+
+    [Fact]
+    public async Task UpdatePost_returns_unauthorized_when_user_id_claim_is_missing()
+    {
+        var controller = new PostsController(new ThrowingPostService())
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity()) }
+            }
+        };
+
+        var result = await controller.Update(
+            Guid.NewGuid(),
+            new Playr.Api.Models.Posts.UpdatePostRequest("Hello", null),
+            CancellationToken.None);
+
+        var unauthorized = result.Result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
+        unauthorized.Value.Should().BeEquivalentTo(new { error = "User id claim is missing or invalid." });
+    }
+
+    [Fact]
+    public async Task DeletePost_returns_unauthorized_when_user_id_claim_is_missing()
+    {
+        var controller = new PostsController(new ThrowingPostService())
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity()) }
+            }
+        };
+
+        var result = await controller.Delete(Guid.NewGuid(), CancellationToken.None);
+
+        var unauthorized = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
+        unauthorized.Value.Should().BeEquivalentTo(new { error = "User id claim is missing or invalid." });
+    }
+
     private sealed class ThrowingPostService : IPostService
     {
         public Task<PostDto> CreateAsync(Guid authorId, CreatePostCommand command, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Should not be called.");
         public Task<IReadOnlyList<PostDto>> GetFeedAsync(CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Should not be called.");
+        public Task<PostDto> UpdateAsync(Guid postId, Guid requesterId, UpdatePostCommand command, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Should not be called.");
+        public Task DeleteAsync(Guid postId, Guid requesterId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Should not be called.");
     }
 }
