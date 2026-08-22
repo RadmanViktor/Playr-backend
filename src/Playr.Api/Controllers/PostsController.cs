@@ -37,6 +37,56 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         return Ok(posts.Select(ToResponse).ToList());
     }
 
+    [Authorize]
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<PostResponse>> Update(Guid id, UpdatePostRequest request, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+
+        try
+        {
+            var post = await postService.UpdateAsync(id, userId,
+                new UpdatePostCommand(request.TextContent, request.Mood),
+                cancellationToken);
+            return Ok(ToResponse(post));
+        }
+        catch (InvalidOperationException ex) when (ex.Message == "Post was not found.")
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("You are not allowed to"))
+        {
+            return StatusCode(403, new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize]
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+
+        try
+        {
+            await postService.DeleteAsync(id, userId, cancellationToken);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex) when (ex.Message == "Post was not found.")
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("You are not allowed to"))
+        {
+            return StatusCode(403, new { error = ex.Message });
+        }
+    }
+
     private static PostResponse ToResponse(PostDto post) => new(
         post.Id,
         post.AuthorId,
