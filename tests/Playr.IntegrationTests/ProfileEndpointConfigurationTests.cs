@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Playr.Api.Controllers;
 using Playr.Api.Models.Profiles;
+using Playr.Application.Posts;
 using Playr.Application.Profiles;
 using Playr.Infrastructure;
 
@@ -83,7 +84,7 @@ public class ProfileEndpointConfigurationTests
     [InlineData("not-a-guid")]
     public async Task UpdateMe_returns_unauthorized_when_user_id_claim_is_missing_or_invalid(string? userIdClaim)
     {
-        var controller = new ProfilesController(new ThrowingProfileService())
+        var controller = new ProfilesController(new ThrowingProfileService(), new ThrowingPostService())
         {
             ControllerContext = new ControllerContext
             {
@@ -128,5 +129,24 @@ public class ProfileEndpointConfigurationTests
 
         public Task<ProfileDto> UpdateCurrentUserAsync(Guid userId, UpdateProfileCommand command, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
+
+        public Task<IReadOnlyList<ProfileSearchResult>> SearchAsync(string query, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
+    }
+
+    private sealed class ThrowingPostService : IPostService
+    {
+        public Task<PostDto> CreateAsync(Guid authorId, CreatePostCommand command, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Post service should not be called.");
+        public Task<IReadOnlyList<PostDto>> GetFeedAsync(Guid? currentUserId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Post service should not be called.");
+        public Task<PostDto> UpdateAsync(Guid postId, Guid requesterId, UpdatePostCommand command, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Post service should not be called.");
+        public Task DeleteAsync(Guid postId, Guid requesterId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Post service should not be called.");
+        public Task<IReadOnlyList<PostDto>> GetByUsernameAsync(string username, Guid? currentUserId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Post service should not be called.");
+        public Task<(int LikesCount, bool Liked)> ToggleLikeAsync(Guid postId, Guid userId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Post service should not be called.");
     }
 }

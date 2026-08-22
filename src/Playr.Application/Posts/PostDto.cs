@@ -11,4 +11,6 @@ public sealed record PostDto(
     string? GameCoverImageUrl,
     string TextContent,
     string? Mood,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    int LikesCount,
+    bool LikedByCurrentUser);

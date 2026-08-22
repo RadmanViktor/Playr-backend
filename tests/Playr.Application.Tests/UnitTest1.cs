@@ -114,6 +114,7 @@ public class ContractTests
         typeof(IProfileService).GetMethods().Select(method => method.Name).Should().BeEquivalentTo(
             "GetByUsernameAsync",
             "GetByUserIdAsync",
-            "UpdateCurrentUserAsync");
+            "UpdateCurrentUserAsync",
+            "SearchAsync");
     }
 }

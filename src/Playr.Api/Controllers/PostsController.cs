@@ -33,7 +33,8 @@ public sealed class PostsController(IPostService postService) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<PostResponse>>> GetFeed(CancellationToken cancellationToken)
     {
-        var posts = await postService.GetFeedAsync(cancellationToken);
+        Guid? currentUserId = User.TryGetUserId(out var uid) ? uid : null;
+        var posts = await postService.GetFeedAsync(currentUserId, cancellationToken);
         return Ok(posts.Select(ToResponse).ToList());
     }
 
@@ -98,5 +99,25 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         post.GameCoverImageUrl,
         post.TextContent,
         post.Mood,
-        post.CreatedAt);
+        post.CreatedAt,
+        post.LikesCount,
+        post.LikedByCurrentUser);
+
+    [Authorize]
+    [HttpPost("{id:guid}/like")]
+    public async Task<ActionResult<object>> ToggleLike(Guid id, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+
+        try
+        {
+            var (likesCount, liked) = await postService.ToggleLikeAsync(id, userId, cancellationToken);
+            return Ok(new { likesCount, liked });
+        }
+        catch (InvalidOperationException ex) when (ex.Message == "Post was not found.")
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
 }

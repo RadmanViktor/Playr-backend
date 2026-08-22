@@ -146,7 +146,8 @@ public class GamesAndPostsEndpointConfigurationTests
         controller.Should().NotBeNull();
         controller!.GetMethods()
             .Should().Contain(m =>
-                m.GetCustomAttribute<HttpGetAttribute>()?.Template == "{username}/posts" &&
+                m.GetCustomAttribute<HttpGetAttribute>() != null &&
+                m.GetCustomAttribute<HttpGetAttribute>()!.Template == "{username}/posts" &&
                 m.GetCustomAttribute<AuthorizeAttribute>() == null);
     }
 
@@ -154,13 +155,15 @@ public class GamesAndPostsEndpointConfigurationTests
     {
         public Task<PostDto> CreateAsync(Guid authorId, CreatePostCommand command, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Should not be called.");
-        public Task<IReadOnlyList<PostDto>> GetFeedAsync(CancellationToken cancellationToken) =>
+        public Task<IReadOnlyList<PostDto>> GetFeedAsync(Guid? currentUserId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Should not be called.");
         public Task<PostDto> UpdateAsync(Guid postId, Guid requesterId, UpdatePostCommand command, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Should not be called.");
         public Task DeleteAsync(Guid postId, Guid requesterId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Should not be called.");
-        public Task<IReadOnlyList<PostDto>> GetByUsernameAsync(string username, CancellationToken cancellationToken) =>
+        public Task<IReadOnlyList<PostDto>> GetByUsernameAsync(string username, Guid? currentUserId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Should not be called.");
+        public Task<(int LikesCount, bool Liked)> ToggleLikeAsync(Guid postId, Guid userId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Should not be called.");
     }
 }

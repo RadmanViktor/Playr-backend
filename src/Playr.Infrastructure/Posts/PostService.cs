@@ -42,11 +42,11 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
         dbContext.Posts.Add(post);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var dtos = await MapToPostDtoAsync([post], cancellationToken);
+        var dtos = await MapToPostDtoAsync([post], authorId, cancellationToken);
         return dtos[0];
     }
 
-    public async Task<IReadOnlyList<PostDto>> GetFeedAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<PostDto>> GetFeedAsync(Guid? currentUserId, CancellationToken cancellationToken)
     {
         var feed = await dbContext.Posts
             .AsNoTracking()
@@ -54,7 +54,7 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
             .Take(FeedSize)
             .ToListAsync(cancellationToken);
 
-        return await MapToPostDtoAsync(feed, cancellationToken);
+        return await MapToPostDtoAsync(feed, currentUserId, cancellationToken);
     }
 
     public async Task<PostDto> UpdateAsync(Guid postId, Guid requesterId, UpdatePostCommand command, CancellationToken cancellationToken)
@@ -83,7 +83,7 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
         post.Mood = mood;
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var dtos = await MapToPostDtoAsync([post], cancellationToken);
+        var dtos = await MapToPostDtoAsync([post], requesterId, cancellationToken);
         return dtos[0];
     }
 
@@ -99,7 +99,7 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<PostDto>> GetByUsernameAsync(string username, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<PostDto>> GetByUsernameAsync(string username, Guid? currentUserId, CancellationToken cancellationToken)
     {
         var normalized = username.ToUpperInvariant();
         var profile = await dbContext.UserProfiles
@@ -116,10 +116,36 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
             .Take(FeedSize)
             .ToListAsync(cancellationToken);
 
-        return await MapToPostDtoAsync(posts, cancellationToken);
+        return await MapToPostDtoAsync(posts, currentUserId, cancellationToken);
     }
 
-    private async Task<IReadOnlyList<PostDto>> MapToPostDtoAsync(IList<Post> posts, CancellationToken cancellationToken)
+    public async Task<(int LikesCount, bool Liked)> ToggleLikeAsync(Guid postId, Guid userId, CancellationToken cancellationToken)
+    {
+        var postExists = await dbContext.Posts.AnyAsync(p => p.Id == postId, cancellationToken);
+        if (!postExists)
+            throw new InvalidOperationException("Post was not found.");
+
+        var existingLike = await dbContext.PostLikes
+            .FirstOrDefaultAsync(l => l.PostId == postId && l.UserId == userId, cancellationToken);
+
+        bool liked;
+        if (existingLike is null)
+        {
+            dbContext.PostLikes.Add(new PostLike { PostId = postId, UserId = userId, CreatedAt = DateTimeOffset.UtcNow });
+            liked = true;
+        }
+        else
+        {
+            dbContext.PostLikes.Remove(existingLike);
+            liked = false;
+        }
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var likesCount = await dbContext.PostLikes.CountAsync(l => l.PostId == postId, cancellationToken);
+        return (likesCount, liked);
+    }
+
+    private async Task<IReadOnlyList<PostDto>> MapToPostDtoAsync(IList<Post> posts, Guid? currentUserId, CancellationToken cancellationToken)
     {
         var authorIds = posts.Select(p => p.AuthorId).Distinct().ToList();
         var profiles = await dbContext.UserProfiles
@@ -136,6 +162,26 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
             .ToListAsync(cancellationToken);
         var gameMap = games.ToDictionary(g => g.Id);
 
+        var postIds = posts.Select(p => p.Id).ToList();
+        var likeCounts = await dbContext.PostLikes
+            .AsNoTracking()
+            .Where(l => postIds.Contains(l.PostId))
+            .GroupBy(l => l.PostId)
+            .Select(g => new { PostId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+        var likeCountMap = likeCounts.ToDictionary(x => x.PostId, x => x.Count);
+
+        var likedByCurrentUser = new HashSet<Guid>();
+        if (currentUserId is Guid uid)
+        {
+            var liked = await dbContext.PostLikes
+                .AsNoTracking()
+                .Where(l => postIds.Contains(l.PostId) && l.UserId == uid)
+                .Select(l => l.PostId)
+                .ToListAsync(cancellationToken);
+            likedByCurrentUser = liked.ToHashSet();
+        }
+
         return posts.Select(post =>
         {
             var profile = profileMap[post.AuthorId];
@@ -151,7 +197,9 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
                 game.CoverImageUrl,
                 post.TextContent,
                 post.Mood?.ToString(),
-                post.CreatedAt);
+                post.CreatedAt,
+                likeCountMap.GetValueOrDefault(post.Id, 0),
+                likedByCurrentUser.Contains(post.Id));
         }).ToList();
     }
 }

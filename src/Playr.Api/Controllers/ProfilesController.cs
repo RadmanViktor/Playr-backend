@@ -56,10 +56,12 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
     public async Task<ActionResult<IReadOnlyList<PostResponse>>> GetPostsByUsername(
         string username, CancellationToken cancellationToken)
     {
-        var posts = await postService.GetByUsernameAsync(username, cancellationToken);
+        Guid? currentUserId = User.TryGetUserId(out var uid) ? uid : null;
+        var posts = await postService.GetByUsernameAsync(username, currentUserId, cancellationToken);
         return Ok(posts.Select(p => new PostResponse(
             p.Id, p.AuthorId, p.AuthorUsername, p.AuthorDisplayName, p.AuthorAvatarUrl,
-            p.GameId, p.GameName, p.GameCoverImageUrl, p.TextContent, p.Mood, p.CreatedAt
+            p.GameId, p.GameName, p.GameCoverImageUrl, p.TextContent, p.Mood, p.CreatedAt,
+            p.LikesCount, p.LikedByCurrentUser
         )).ToList());
     }
 

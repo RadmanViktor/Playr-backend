@@ -16,6 +16,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<Game> Games => Set<Game>();
     public DbSet<Post> Posts => Set<Post>();
+    public DbSet<PostLike> PostLikes => Set<PostLike>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -89,6 +90,22 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
             {
                 post.Property(p => p.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+            }
+        });
+
+        builder.Entity<PostLike>(like =>
+        {
+            like.HasKey(l => new { l.PostId, l.UserId });
+            like.HasOne(l => l.Post)
+                .WithMany()
+                .HasForeignKey(l => l.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                like.Property(l => l.CreatedAt)
                     .HasConversion(
                         v => v.ToUnixTimeMilliseconds(),
                         v => DateTimeOffset.FromUnixTimeMilliseconds(v));
