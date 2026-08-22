@@ -207,4 +207,20 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
     private static bool IsAbsoluteHttpUrl(string value) =>
         Uri.TryCreate(value, UriKind.Absolute, out var uri)
         && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+
+    public async Task<IReadOnlyList<ProfileSearchResult>> SearchAsync(string query, CancellationToken cancellationToken)
+    {
+        var trimmed = query.Trim();
+        if (trimmed.Length == 0)
+            return [];
+
+        var upper = trimmed.ToUpperInvariant();
+        return await dbContext.UserProfiles
+            .AsNoTracking()
+            .Where(p => p.Username.ToUpper().Contains(upper) || p.DisplayName.ToUpper().Contains(upper))
+            .OrderBy(p => p.Username)
+            .Take(8)
+            .Select(p => new ProfileSearchResult(p.UserId, p.Username, p.DisplayName, p.AvatarUrl))
+            .ToListAsync(cancellationToken);
+    }
 }

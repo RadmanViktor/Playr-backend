@@ -77,4 +77,12 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
         profile.LookingForPlayers,
         profile.CreatedAt,
         profile.UpdatedAt);
+
+    [HttpGet("search")]
+    public async Task<ActionResult<IReadOnlyList<ProfileSearchResponse>>> Search(
+        [FromQuery] string? q, CancellationToken cancellationToken)
+    {
+        var results = await profileService.SearchAsync(q ?? string.Empty, cancellationToken);
+        return Ok(results.Select(r => new ProfileSearchResponse(r.UserId, r.Username, r.DisplayName, r.AvatarUrl)).ToList());
+    }
 }
