@@ -42,15 +42,14 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
         dbContext.Posts.Add(post);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return await MapToPostDtoAsync([post], cancellationToken)
-            .ContinueWith(t => t.Result[0], cancellationToken);
+        var dtos = await MapToPostDtoAsync([post], cancellationToken);
+        return dtos[0];
     }
 
     public async Task<IReadOnlyList<PostDto>> GetFeedAsync(CancellationToken cancellationToken)
     {
         var feed = await dbContext.Posts
             .AsNoTracking()
-            .Include(p => p.Game)
             .OrderByDescending(p => p.CreatedAt)
             .Take(FeedSize)
             .ToListAsync(cancellationToken);
@@ -68,17 +67,17 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
 
         var profileMap = profiles.ToDictionary(up => up.UserId);
 
-        // Ensure games are loaded
-        var gameIds = posts.Where(p => p.Game is null).Select(p => p.GameId).Distinct().ToList();
-        var games = gameIds.Count > 0
-            ? await dbContext.Games.AsNoTracking().Where(g => gameIds.Contains(g.Id)).ToListAsync(cancellationToken)
-            : new();
+        var gameIds = posts.Select(p => p.GameId).Distinct().ToList();
+        var games = await dbContext.Games
+            .AsNoTracking()
+            .Where(g => gameIds.Contains(g.Id))
+            .ToListAsync(cancellationToken);
         var gameMap = games.ToDictionary(g => g.Id);
 
         return posts.Select(post =>
         {
             var profile = profileMap[post.AuthorId];
-            var game = post.Game ?? gameMap[post.GameId];
+            var game = gameMap[post.GameId];
             return new PostDto(
                 post.Id,
                 post.AuthorId,
