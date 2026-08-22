@@ -53,7 +53,7 @@ public sealed class PostsByUsernameTests : IAsyncDisposable
     [Fact]
     public async Task GetByUsernameAsync_ReturnsPostsNewestFirst()
     {
-        var result = await _service.GetByUsernameAsync("gamer", CancellationToken.None);
+        var result = await _service.GetByUsernameAsync("gamer", null, CancellationToken.None);
 
         result.Should().HaveCount(2);
         result[0].TextContent.Should().Be("Post B");
@@ -63,14 +63,14 @@ public sealed class PostsByUsernameTests : IAsyncDisposable
     [Fact]
     public async Task GetByUsernameAsync_IsCaseInsensitive()
     {
-        var result = await _service.GetByUsernameAsync("GAMER", CancellationToken.None);
+        var result = await _service.GetByUsernameAsync("GAMER", null, CancellationToken.None);
         result.Should().HaveCount(2);
     }
 
     [Fact]
     public async Task GetByUsernameAsync_ReturnsEmptyListForUnknownUsername()
     {
-        var result = await _service.GetByUsernameAsync("nobody", CancellationToken.None);
+        var result = await _service.GetByUsernameAsync("nobody", null, CancellationToken.None);
         result.Should().BeEmpty();
     }
 

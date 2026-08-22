@@ -132,7 +132,7 @@ public sealed class PostServiceTests : IAsyncDisposable
         await Task.Delay(10);
         await _service.CreateAsync(_authorId, newer, CancellationToken.None);
 
-        var feed = await _service.GetFeedAsync(CancellationToken.None);
+        var feed = await _service.GetFeedAsync(null, CancellationToken.None);
 
         feed.Should().HaveCount(2);
         feed[0].TextContent.Should().Be("Second post");
@@ -155,7 +155,7 @@ public sealed class PostServiceTests : IAsyncDisposable
         }
         await _dbContext.SaveChangesAsync();
 
-        var feed = await _service.GetFeedAsync(CancellationToken.None);
+        var feed = await _service.GetFeedAsync(null, CancellationToken.None);
 
         feed.Should().HaveCount(50);
     }
