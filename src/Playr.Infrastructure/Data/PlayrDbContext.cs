@@ -86,6 +86,13 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                 .HasForeignKey(p => p.GameId)
                 .OnDelete(DeleteBehavior.Restrict);
             post.HasIndex(p => p.CreatedAt);
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                post.Property(p => p.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+            }
         });
     }
 }

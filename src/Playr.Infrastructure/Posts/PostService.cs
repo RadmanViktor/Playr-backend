@@ -48,15 +48,12 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
 
     public async Task<IReadOnlyList<PostDto>> GetFeedAsync(CancellationToken cancellationToken)
     {
-        var posts = await dbContext.Posts
+        var feed = await dbContext.Posts
             .AsNoTracking()
             .Include(p => p.Game)
-            .ToListAsync(cancellationToken);
-
-        var feed = posts
             .OrderByDescending(p => p.CreatedAt)
             .Take(FeedSize)
-            .ToList();
+            .ToListAsync(cancellationToken);
 
         return await MapToPostDtoAsync(feed, cancellationToken);
     }
