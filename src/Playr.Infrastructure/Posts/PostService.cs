@@ -57,6 +57,48 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
         return await MapToPostDtoAsync(feed, cancellationToken);
     }
 
+    public async Task<PostDto> UpdateAsync(Guid postId, Guid requesterId, UpdatePostCommand command, CancellationToken cancellationToken)
+    {
+        var text = command.TextContent?.Trim() ?? string.Empty;
+        if (text.Length == 0)
+            throw new InvalidOperationException("Post text is required.");
+        if (text.Length > MaxTextLength)
+            throw new InvalidOperationException($"Post text cannot be longer than {MaxTextLength} characters.");
+
+        PostMood? mood = null;
+        if (command.Mood is not null)
+        {
+            if (!Enum.TryParse<PostMood>(command.Mood, ignoreCase: true, out var parsed))
+                throw new InvalidOperationException("Invalid mood value.");
+            mood = parsed;
+        }
+
+        var post = await dbContext.Posts.FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
+            ?? throw new InvalidOperationException("Post was not found.");
+
+        if (post.AuthorId != requesterId)
+            throw new InvalidOperationException("You are not allowed to edit this post.");
+
+        post.TextContent = text;
+        post.Mood = mood;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var dtos = await MapToPostDtoAsync([post], cancellationToken);
+        return dtos[0];
+    }
+
+    public async Task DeleteAsync(Guid postId, Guid requesterId, CancellationToken cancellationToken)
+    {
+        var post = await dbContext.Posts.FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
+            ?? throw new InvalidOperationException("Post was not found.");
+
+        if (post.AuthorId != requesterId)
+            throw new InvalidOperationException("You are not allowed to delete this post.");
+
+        dbContext.Posts.Remove(post);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task<IReadOnlyList<PostDto>> MapToPostDtoAsync(IList<Post> posts, CancellationToken cancellationToken)
     {
         var authorIds = posts.Select(p => p.AuthorId).Distinct().ToList();
