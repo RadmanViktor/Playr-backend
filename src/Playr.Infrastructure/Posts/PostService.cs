@@ -1,0 +1,99 @@
+using Microsoft.EntityFrameworkCore;
+using Playr.Application.Posts;
+using Playr.Domain.Posts;
+using Playr.Infrastructure.Data;
+
+namespace Playr.Infrastructure.Posts;
+
+public sealed class PostService(PlayrDbContext dbContext) : IPostService
+{
+    private const int MaxTextLength = 1000;
+    private const int FeedSize = 50;
+
+    public async Task<PostDto> CreateAsync(Guid authorId, CreatePostCommand command, CancellationToken cancellationToken)
+    {
+        var text = command.TextContent?.Trim() ?? string.Empty;
+        if (text.Length == 0)
+            throw new InvalidOperationException("Post text is required.");
+        if (text.Length > MaxTextLength)
+            throw new InvalidOperationException($"Post text cannot be longer than {MaxTextLength} characters.");
+
+        PostMood? mood = null;
+        if (command.Mood is not null)
+        {
+            if (!Enum.TryParse<PostMood>(command.Mood, ignoreCase: true, out var parsed))
+                throw new InvalidOperationException("Invalid mood value.");
+            mood = parsed;
+        }
+
+        var gameExists = await dbContext.Games.AnyAsync(g => g.Id == command.GameId, cancellationToken);
+        if (!gameExists)
+            throw new InvalidOperationException("Game was not found.");
+
+        var post = new Post
+        {
+            Id = Guid.NewGuid(),
+            AuthorId = authorId,
+            GameId = command.GameId,
+            TextContent = text,
+            Mood = mood,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        dbContext.Posts.Add(post);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return await MapToPostDtoAsync([post], cancellationToken)
+            .ContinueWith(t => t.Result[0], cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<PostDto>> GetFeedAsync(CancellationToken cancellationToken)
+    {
+        var posts = await dbContext.Posts
+            .AsNoTracking()
+            .Include(p => p.Game)
+            .ToListAsync(cancellationToken);
+
+        var feed = posts
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(FeedSize)
+            .ToList();
+
+        return await MapToPostDtoAsync(feed, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<PostDto>> MapToPostDtoAsync(IList<Post> posts, CancellationToken cancellationToken)
+    {
+        var authorIds = posts.Select(p => p.AuthorId).Distinct().ToList();
+        var profiles = await dbContext.UserProfiles
+            .AsNoTracking()
+            .Where(up => authorIds.Contains(up.UserId))
+            .ToListAsync(cancellationToken);
+
+        var profileMap = profiles.ToDictionary(up => up.UserId);
+
+        // Ensure games are loaded
+        var gameIds = posts.Where(p => p.Game is null).Select(p => p.GameId).Distinct().ToList();
+        var games = gameIds.Count > 0
+            ? await dbContext.Games.AsNoTracking().Where(g => gameIds.Contains(g.Id)).ToListAsync(cancellationToken)
+            : new();
+        var gameMap = games.ToDictionary(g => g.Id);
+
+        return posts.Select(post =>
+        {
+            var profile = profileMap[post.AuthorId];
+            var game = post.Game ?? gameMap[post.GameId];
+            return new PostDto(
+                post.Id,
+                post.AuthorId,
+                profile.Username,
+                profile.DisplayName,
+                profile.AvatarUrl,
+                game.Id,
+                game.Name,
+                game.CoverImageUrl,
+                post.TextContent,
+                post.Mood?.ToString(),
+                post.CreatedAt);
+        }).ToList();
+    }
+}
