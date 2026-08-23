@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Playr.Application.Profiles;
+using Playr.Domain.Games;
 using Playr.Domain.Profiles;
 using Playr.Infrastructure.Data;
 
@@ -21,6 +22,7 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
     {
         var normalized = username.ToUpperInvariant();
         var profile = await dbContext.UserProfiles.AsNoTracking()
+            .Include(p => p.LookingForGame)
             .FirstOrDefaultAsync(p => p.Username.ToUpper() == normalized, cancellationToken);
         return profile is null ? null : ToDto(profile);
     }
@@ -28,6 +30,7 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
     public async Task<ProfileDto?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
     {
         var profile = await dbContext.UserProfiles.AsNoTracking()
+            .Include(p => p.LookingForGame)
             .FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
         return profile is null ? null : ToDto(profile);
     }
@@ -64,11 +67,57 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
         profile.Platforms = platforms;
         profile.ExternalLinks = externalLinks;
         profile.CurrentlyPlayingGames = currentlyPlayingGames;
-        profile.LookingForPlayers = command.LookingForPlayers;
         profile.UpdatedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return ToDto(profile);
+    }
+
+    public async Task<ProfileDto> UpdateStatusAsync(Guid userId, UpdateStatusCommand command, CancellationToken cancellationToken)
+    {
+        if (command.Status == ProfileStatus.LookingForGame)
+        {
+            if (command.LookingForGameId is null)
+            {
+                throw new InvalidOperationException("A game is required when status is Looking for game.");
+            }
+
+            if (command.LookingForPlayStyle is null)
+            {
+                throw new InvalidOperationException("A play style is required when status is Looking for game.");
+            }
+
+            var gameExists = await dbContext.Games.AsNoTracking()
+                .AnyAsync(g => g.Id == command.LookingForGameId, cancellationToken);
+            if (!gameExists)
+            {
+                throw new InvalidOperationException("The selected game was not found.");
+            }
+        }
+
+        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken)
+            ?? throw new InvalidOperationException("Profile was not found.");
+
+        profile.Status = command.Status;
+        if (command.Status == ProfileStatus.LookingForGame)
+        {
+            profile.LookingForGameId = command.LookingForGameId;
+            profile.LookingForPlayStyle = command.LookingForPlayStyle;
+        }
+        else
+        {
+            profile.LookingForGameId = null;
+            profile.LookingForPlayStyle = null;
+        }
+
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var reloaded = await dbContext.UserProfiles.AsNoTracking()
+            .Include(p => p.LookingForGame)
+            .FirstAsync(p => p.UserId == userId, cancellationToken);
+        return ToDto(reloaded);
     }
 
     private static ProfileDto ToDto(UserProfile profile) => new(
@@ -82,7 +131,10 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
         profile.Platforms,
         profile.ExternalLinks,
         profile.CurrentlyPlayingGames,
-        profile.LookingForPlayers,
+        profile.Status,
+        profile.LookingForGameId,
+        profile.LookingForGame?.Name,
+        profile.LookingForPlayStyle,
         profile.CreatedAt,
         profile.UpdatedAt);
 

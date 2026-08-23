@@ -11,6 +11,7 @@ using Playr.Api.Controllers;
 using Playr.Api.Models.Profiles;
 using Playr.Application.Posts;
 using Playr.Application.Profiles;
+using Playr.Domain.Profiles;
 using Playr.Infrastructure;
 
 namespace Playr.IntegrationTests;
@@ -52,7 +53,7 @@ public class ProfileEndpointConfigurationTests
         profileResponse.GetProperty("Platforms")!.PropertyType.Should().Be(typeof(IReadOnlyList<string>));
         profileResponse.GetProperty("ExternalLinks")!.PropertyType.Should().Be(typeof(IReadOnlyDictionary<string, string>));
         profileResponse.GetProperty("CurrentlyPlayingGames")!.PropertyType.Should().Be(typeof(IReadOnlyList<string>));
-        profileResponse.GetProperty("LookingForPlayers")!.PropertyType.Should().Be(typeof(bool));
+        profileResponse.GetProperty("Status")!.PropertyType.Should().Be(typeof(ProfileStatus));
         profileResponse.GetProperty("CreatedAt")!.PropertyType.Should().Be(typeof(DateTimeOffset));
         profileResponse.GetProperty("UpdatedAt")!.PropertyType.Should().Be(typeof(DateTimeOffset));
 
@@ -93,7 +94,7 @@ public class ProfileEndpointConfigurationTests
         };
 
         var result = await controller.UpdateMe(
-            new UpdateProfileRequest("Player", null, null, null, null, null, null, null, false),
+            new UpdateProfileRequest("Player", null, null, null, null, null, null, null),
             CancellationToken.None);
 
         var unauthorized = result.Result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
@@ -128,6 +129,9 @@ public class ProfileEndpointConfigurationTests
             throw new InvalidOperationException("Profile service should not be called.");
 
         public Task<ProfileDto> UpdateCurrentUserAsync(Guid userId, UpdateProfileCommand command, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
+
+        public Task<ProfileDto> UpdateStatusAsync(Guid userId, UpdateStatusCommand command, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
 
         public Task<IReadOnlyList<ProfileSearchResult>> SearchAsync(string query, CancellationToken cancellationToken) =>

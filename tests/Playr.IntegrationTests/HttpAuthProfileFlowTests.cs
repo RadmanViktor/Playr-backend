@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
 using Playr.Api.Models.Auth;
 using Playr.Api.Models.Profiles;
+using Playr.Domain.Profiles;
 using Playr.Infrastructure.Data;
 
 namespace Playr.IntegrationTests;
@@ -69,15 +70,14 @@ public sealed class HttpAuthProfileFlowTests : IClassFixture<PlayrWebApplication
             ["English"],
             ["PC"],
             new Dictionary<string, string> { ["Steam"] = "https://example.com/player" },
-            ["Chess"],
-            true));
+            ["Chess"]));
         updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var updated = await updateResponse.Content.ReadFromJsonAsync<ProfileResponse>();
         updated.Should().NotBeNull();
         updated!.DisplayName.Should().Be("Player One");
         updated.Bio.Should().Be("Ready to play");
         updated.AvatarUrl.Should().Be("https://example.com/avatar.png");
-        updated.LookingForPlayers.Should().BeTrue();
+        updated.Status.Should().Be(ProfileStatus.Online);
     }
 }
 

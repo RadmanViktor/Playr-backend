@@ -318,8 +318,7 @@ public sealed class ProfileServiceTests
             ["English"],
             ["PC"],
             new Dictionary<string, string> { ["Steam"] = "https://example.com/player" },
-            ["Chess"],
-            true);
+            ["Chess"]);
 
         public async ValueTask DisposeAsync()
         {

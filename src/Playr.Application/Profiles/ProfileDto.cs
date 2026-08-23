@@ -1,3 +1,5 @@
+using Playr.Domain.Profiles;
+
 namespace Playr.Application.Profiles;
 
 public sealed record ProfileDto(
@@ -11,6 +13,9 @@ public sealed record ProfileDto(
     IReadOnlyList<string> Platforms,
     IReadOnlyDictionary<string, string> ExternalLinks,
     IReadOnlyList<string> CurrentlyPlayingGames,
-    bool LookingForPlayers,
+    ProfileStatus Status,
+    Guid? LookingForGameId,
+    string? LookingForGameName,
+    PlayStyle? LookingForPlayStyle,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);

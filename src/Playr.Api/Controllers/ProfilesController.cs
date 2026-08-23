@@ -40,8 +40,31 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
                     request.Languages ?? [],
                     request.Platforms ?? [],
                     request.ExternalLinks ?? new Dictionary<string, string>(),
-                    request.CurrentlyPlayingGames ?? [],
-                    request.LookingForPlayers),
+                    request.CurrentlyPlayingGames ?? []),
+                cancellationToken);
+
+            return Ok(ToResponse(profile));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize]
+    [HttpPatch("me/status")]
+    public async Task<ActionResult<ProfileResponse>> UpdateStatus(UpdateStatusRequest request, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        try
+        {
+            var profile = await profileService.UpdateStatusAsync(
+                userId,
+                new UpdateStatusCommand(request.Status, request.LookingForGameId, request.LookingForPlayStyle),
                 cancellationToken);
 
             return Ok(ToResponse(profile));
@@ -76,7 +99,10 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
         profile.Platforms,
         profile.ExternalLinks,
         profile.CurrentlyPlayingGames,
-        profile.LookingForPlayers,
+        profile.Status,
+        profile.LookingForGameId,
+        profile.LookingForGameName,
+        profile.LookingForPlayStyle,
         profile.CreatedAt,
         profile.UpdatedAt);
 

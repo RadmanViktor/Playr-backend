@@ -8,5 +8,4 @@ public sealed record UpdateProfileCommand(
     IReadOnlyList<string> Languages,
     IReadOnlyList<string> Platforms,
     IReadOnlyDictionary<string, string> ExternalLinks,
-    IReadOnlyList<string> CurrentlyPlayingGames,
-    bool LookingForPlayers);
+    IReadOnlyList<string> CurrentlyPlayingGames);

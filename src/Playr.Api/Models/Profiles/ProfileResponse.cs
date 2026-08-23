@@ -1,3 +1,5 @@
+using Playr.Domain.Profiles;
+
 namespace Playr.Api.Models.Profiles;
 
 public sealed record ProfileResponse(
@@ -11,6 +13,9 @@ public sealed record ProfileResponse(
     IReadOnlyList<string> Platforms,
     IReadOnlyDictionary<string, string> ExternalLinks,
     IReadOnlyList<string> CurrentlyPlayingGames,
-    bool LookingForPlayers,
+    ProfileStatus Status,
+    Guid? LookingForGameId,
+    string? LookingForGameName,
+    PlayStyle? LookingForPlayStyle,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);

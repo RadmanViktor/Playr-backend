@@ -38,7 +38,9 @@ public class ContractTests
         profile.Platforms.Should().BeEmpty();
         profile.ExternalLinks.Should().BeEmpty();
         profile.CurrentlyPlayingGames.Should().BeEmpty();
-        profile.LookingForPlayers.Should().BeFalse();
+        profile.Status.Should().Be(ProfileStatus.Online);
+        profile.LookingForGameId.Should().BeNull();
+        profile.LookingForPlayStyle.Should().BeNull();
         profile.CreatedAt.Should().BeOnOrAfter(before);
         profile.CreatedAt.Should().BeOnOrBefore(DateTimeOffset.UtcNow);
         profile.UpdatedAt.Should().BeOnOrAfter(before);
@@ -90,7 +92,10 @@ public class ContractTests
             platforms,
             externalLinks,
             games,
-            true,
+            ProfileStatus.LookingForGame,
+            null,
+            null,
+            null,
             createdAt,
             updatedAt);
         var command = new UpdateProfileCommand(
@@ -101,13 +106,12 @@ public class ContractTests
             languages,
             platforms,
             externalLinks,
-            games,
-            true);
+            games);
 
         profile.Username.Should().Be("player");
         profile.Languages.Should().BeEquivalentTo(languages);
         profile.ExternalLinks.Should().ContainKey("twitch");
-        profile.LookingForPlayers.Should().BeTrue();
+        profile.Status.Should().Be(ProfileStatus.LookingForGame);
         profile.UpdatedAt.Should().Be(updatedAt);
         command.DisplayName.Should().Be("Player");
         command.CurrentlyPlayingGames.Should().BeEquivalentTo(games);
@@ -115,6 +119,7 @@ public class ContractTests
             "GetByUsernameAsync",
             "GetByUserIdAsync",
             "UpdateCurrentUserAsync",
+            "UpdateStatusAsync",
             "SearchAsync");
     }
 }

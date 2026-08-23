@@ -37,6 +37,18 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             profile.Property(p => p.Bio).HasMaxLength(500);
             profile.Property(p => p.AvatarUrl).HasMaxLength(500);
             profile.Property(p => p.Region).HasMaxLength(64);
+            profile.Property(p => p.Status)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .HasDefaultValue(ProfileStatus.Online)
+                .IsRequired();
+            profile.Property(p => p.LookingForPlayStyle)
+                .HasConversion<string>()
+                .HasMaxLength(32);
+            profile.HasOne(p => p.LookingForGame)
+                .WithMany()
+                .HasForeignKey(p => p.LookingForGameId)
+                .OnDelete(DeleteBehavior.SetNull);
             if (Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL")
             {
                 profile.Property(p => p.Languages).HasColumnType("jsonb");

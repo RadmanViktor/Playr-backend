@@ -1,3 +1,4 @@
+using Playr.Domain.Games;
 using Playr.Domain.Identity;
 
 namespace Playr.Domain.Profiles;
@@ -15,7 +16,10 @@ public sealed class UserProfile
     public List<string> Platforms { get; set; } = [];
     public Dictionary<string, string> ExternalLinks { get; set; } = [];
     public List<string> CurrentlyPlayingGames { get; set; } = [];
-    public bool LookingForPlayers { get; set; }
+    public ProfileStatus Status { get; set; } = ProfileStatus.Online;
+    public Guid? LookingForGameId { get; set; }
+    public Game? LookingForGame { get; set; }
+    public PlayStyle? LookingForPlayStyle { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
