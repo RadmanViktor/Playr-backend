@@ -113,4 +113,26 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
         var results = await profileService.SearchAsync(q ?? string.Empty, cancellationToken);
         return Ok(results.Select(r => new ProfileSearchResponse(r.UserId, r.Username, r.DisplayName, r.AvatarUrl)).ToList());
     }
+
+    [Authorize]
+    [HttpGet("looking-for-game")]
+    public async Task<ActionResult<IReadOnlyList<LookingForGamePlayerResponse>>> GetLookingForGamePlayers(
+        CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        var players = await profileService.GetLookingForGamePlayersAsync(userId, cancellationToken);
+        return Ok(players.Select(p => new LookingForGamePlayerResponse(
+            p.UserId,
+            p.Username,
+            p.DisplayName,
+            p.AvatarUrl,
+            p.LookingForGameId,
+            p.LookingForGameName,
+            p.LookingForPlayStyle,
+            p.RelationshipStatus.ToString())).ToList());
+    }
 }

@@ -136,6 +136,9 @@ public class ProfileEndpointConfigurationTests
 
         public Task<IReadOnlyList<ProfileSearchResult>> SearchAsync(string query, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
+
+        public Task<IReadOnlyList<LookingForGamePlayerDto>> GetLookingForGamePlayersAsync(Guid currentUserId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
     }
 
     private sealed class ThrowingPostService : IPostService

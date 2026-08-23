@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Playr.Domain.Friendships;
 using Playr.Domain.Games;
 using Playr.Domain.Identity;
+using Playr.Domain.Invitations;
 using Playr.Domain.Posts;
 using Playr.Domain.Profiles;
 using System.Text.Json;
@@ -17,6 +19,8 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<Game> Games => Set<Game>();
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<PostLike> PostLikes => Set<PostLike>();
+    public DbSet<Invitation> Invitations => Set<Invitation>();
+    public DbSet<Friendship> Friendships => Set<Friendship>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -118,6 +122,58 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
             {
                 like.Property(l => l.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+            }
+        });
+
+        builder.Entity<Invitation>(invitation =>
+        {
+            invitation.HasKey(i => i.Id);
+            invitation.Property(i => i.Message).HasMaxLength(500).IsRequired();
+            invitation.Property(i => i.Status)
+                .HasConversion<string>()
+                .HasMaxLength(16)
+                .HasDefaultValue(InvitationStatus.Pending)
+                .IsRequired();
+            invitation.HasOne(i => i.Sender)
+                .WithMany()
+                .HasForeignKey(i => i.SenderUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            invitation.HasOne(i => i.Recipient)
+                .WithMany()
+                .HasForeignKey(i => i.RecipientUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            invitation.HasIndex(i => new { i.SenderUserId, i.RecipientUserId, i.Status });
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                invitation.Property(i => i.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                invitation.Property(i => i.RespondedAt)
+                    .HasConversion(
+                        v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
+                        v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
+            }
+        });
+
+        builder.Entity<Friendship>(friendship =>
+        {
+            friendship.HasKey(f => f.Id);
+            friendship.HasOne(f => f.UserA)
+                .WithMany()
+                .HasForeignKey(f => f.UserAId)
+                .OnDelete(DeleteBehavior.Cascade);
+            friendship.HasOne(f => f.UserB)
+                .WithMany()
+                .HasForeignKey(f => f.UserBId)
+                .OnDelete(DeleteBehavior.Restrict);
+            friendship.HasIndex(f => new { f.UserAId, f.UserBId }).IsUnique();
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                friendship.Property(f => f.CreatedAt)
                     .HasConversion(
                         v => v.ToUnixTimeMilliseconds(),
                         v => DateTimeOffset.FromUnixTimeMilliseconds(v));

@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Playr.Application.Invitations;
 using Playr.Application.Profiles;
 using Playr.Domain.Games;
+using Playr.Domain.Invitations;
 using Playr.Domain.Profiles;
 using Playr.Infrastructure.Data;
 
@@ -274,5 +276,47 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
             .Take(8)
             .Select(p => new ProfileSearchResult(p.UserId, p.Username, p.DisplayName, p.AvatarUrl))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<LookingForGamePlayerDto>> GetLookingForGamePlayersAsync(
+        Guid currentUserId, CancellationToken cancellationToken)
+    {
+        var players = await dbContext.UserProfiles.AsNoTracking()
+            .Where(p => p.Status == ProfileStatus.LookingForGame && p.UserId != currentUserId)
+            .Include(p => p.LookingForGame)
+            .OrderBy(p => p.Username)
+            .ToListAsync(cancellationToken);
+
+        if (players.Count == 0)
+        {
+            return [];
+        }
+
+        var friendUserIds = await dbContext.Friendships.AsNoTracking()
+            .Where(f => f.UserAId == currentUserId || f.UserBId == currentUserId)
+            .Select(f => f.UserAId == currentUserId ? f.UserBId : f.UserAId)
+            .ToListAsync(cancellationToken);
+        var friendSet = friendUserIds.ToHashSet();
+
+        var pendingInvitationUserIds = await dbContext.Invitations.AsNoTracking()
+            .Where(i => i.Status == InvitationStatus.Pending &&
+                ((i.SenderUserId == currentUserId) || (i.RecipientUserId == currentUserId)))
+            .Select(i => i.SenderUserId == currentUserId ? i.RecipientUserId : i.SenderUserId)
+            .ToListAsync(cancellationToken);
+        var pendingSet = pendingInvitationUserIds.ToHashSet();
+
+        return players.Select(p => new LookingForGamePlayerDto(
+            p.UserId,
+            p.Username,
+            p.DisplayName,
+            p.AvatarUrl,
+            p.LookingForGameId,
+            p.LookingForGame?.Name,
+            p.LookingForPlayStyle,
+            friendSet.Contains(p.UserId)
+                ? RelationshipStatus.Friends
+                : pendingSet.Contains(p.UserId)
+                    ? RelationshipStatus.InvitePending
+                    : RelationshipStatus.None)).ToList();
     }
 }
