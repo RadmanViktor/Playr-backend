@@ -43,6 +43,8 @@ public static class DependencyInjection
         services.AddScoped<Playr.Application.Games.IGameService, Playr.Infrastructure.Games.GameService>();
         services.AddScoped<Playr.Application.Posts.IPostService, Playr.Infrastructure.Posts.PostService>();
         services.AddScoped<Playr.Application.Invitations.IInvitationService, Playr.Infrastructure.Invitations.InvitationService>();
+        services.AddScoped<Playr.Application.Friends.IFriendService, Playr.Infrastructure.Friends.FriendService>();
+        services.AddScoped<Playr.Application.Chat.IChatService, Playr.Infrastructure.Chat.ChatService>();
 
         return services;
     }

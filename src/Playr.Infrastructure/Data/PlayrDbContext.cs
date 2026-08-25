@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Playr.Domain.Chat;
 using Playr.Domain.Friendships;
 using Playr.Domain.Games;
 using Playr.Domain.Identity;
@@ -21,6 +22,9 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<PostLike> PostLikes => Set<PostLike>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -177,6 +181,78 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                     .HasConversion(
                         v => v.ToUnixTimeMilliseconds(),
                         v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+            }
+        });
+
+        builder.Entity<Conversation>(conversation =>
+        {
+            conversation.HasKey(c => c.Id);
+            conversation.HasOne(c => c.DirectUserA)
+                .WithMany()
+                .HasForeignKey(c => c.DirectUserAId)
+                .OnDelete(DeleteBehavior.Cascade);
+            conversation.HasOne(c => c.DirectUserB)
+                .WithMany()
+                .HasForeignKey(c => c.DirectUserBId)
+                .OnDelete(DeleteBehavior.Restrict);
+            conversation.HasIndex(c => new { c.DirectUserAId, c.DirectUserBId }).IsUnique();
+            conversation.HasIndex(c => c.UpdatedAt);
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                conversation.Property(c => c.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                conversation.Property(c => c.UpdatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+            }
+        });
+
+        builder.Entity<ConversationParticipant>(participant =>
+        {
+            participant.HasKey(p => new { p.ConversationId, p.UserId });
+            participant.HasOne(p => p.Conversation)
+                .WithMany(c => c.Participants)
+                .HasForeignKey(p => p.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            participant.HasOne(p => p.User)
+                .WithMany()
+                .HasForeignKey(p => p.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                participant.Property(p => p.JoinedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+            }
+        });
+
+        builder.Entity<ChatMessage>(message =>
+        {
+            message.HasKey(m => m.Id);
+            message.Property(m => m.Body).HasMaxLength(1000).IsRequired();
+            message.HasOne(m => m.Conversation)
+                .WithMany(c => c.Messages)
+                .HasForeignKey(m => m.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            message.HasOne(m => m.Sender)
+                .WithMany()
+                .HasForeignKey(m => m.SenderUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            message.HasIndex(m => new { m.ConversationId, m.CreatedAt });
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                message.Property(m => m.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                message.Property(m => m.ReadAt)
+                    .HasConversion(
+                        v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
+                        v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
             }
         });
     }
