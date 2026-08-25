@@ -35,11 +35,6 @@ public sealed class InvitationService(PlayrDbContext dbContext) : IInvitationSer
             throw new InvalidOperationException("Recipient was not found.");
         }
 
-        if (await AreFriendsAsync(senderUserId, command.RecipientUserId, cancellationToken))
-        {
-            throw new InvalidOperationException("You are already friends with this player.");
-        }
-
         var hasPendingInvitation = await dbContext.Invitations.AsNoTracking().AnyAsync(i =>
             i.Status == InvitationStatus.Pending &&
             ((i.SenderUserId == senderUserId && i.RecipientUserId == command.RecipientUserId) ||
