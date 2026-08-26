@@ -47,7 +47,7 @@ public sealed class PostsByUsernameTests : IAsyncDisposable
             new Post { Id = Guid.NewGuid(), AuthorId = _userId, GameId = _gameId, TextContent = "Post B", CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-1) }
         );
         _dbContext.SaveChanges();
-        _service = new PostService(_dbContext);
+        _service = new PostService(_dbContext, new NoOpFileStorageService());
     }
 
     [Fact]

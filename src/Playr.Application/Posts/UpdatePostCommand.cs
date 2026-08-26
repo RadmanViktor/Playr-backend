@@ -2,4 +2,6 @@ namespace Playr.Application.Posts;
 
 public sealed record UpdatePostCommand(
     string TextContent,
-    string? Mood);
+    string? Mood,
+    PostMediaInput? Media,
+    bool RemoveMedia);

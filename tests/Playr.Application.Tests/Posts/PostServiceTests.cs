@@ -49,13 +49,13 @@ public sealed class PostServiceTests : IAsyncDisposable
         _dbContext.Games.Add(new Game { Id = _gameId, Name = "Hollow Knight" });
         _dbContext.SaveChanges();
 
-        _service = new PostService(_dbContext);
+        _service = new PostService(_dbContext, new NoOpFileStorageService());
     }
 
     [Fact]
     public async Task CreateAsync_with_valid_data_returns_post_dto()
     {
-        var command = new CreatePostCommand(_gameId, "Cleared the boss!", null);
+        var command = new CreatePostCommand(_gameId, "Cleared the boss!", null, null);
         var result = await _service.CreateAsync(_authorId, command, CancellationToken.None);
 
         result.Id.Should().NotBeEmpty();
@@ -72,7 +72,7 @@ public sealed class PostServiceTests : IAsyncDisposable
     [Fact]
     public async Task CreateAsync_with_mood_sets_mood_string()
     {
-        var command = new CreatePostCommand(_gameId, "So fun!", "Enjoying");
+        var command = new CreatePostCommand(_gameId, "So fun!", "Enjoying", null);
         var result = await _service.CreateAsync(_authorId, command, CancellationToken.None);
 
         result.Mood.Should().Be("Enjoying");
@@ -81,7 +81,7 @@ public sealed class PostServiceTests : IAsyncDisposable
     [Fact]
     public async Task CreateAsync_with_null_mood_sets_mood_null()
     {
-        var command = new CreatePostCommand(_gameId, "Just playing.", null);
+        var command = new CreatePostCommand(_gameId, "Just playing.", null, null);
         var result = await _service.CreateAsync(_authorId, command, CancellationToken.None);
 
         result.Mood.Should().BeNull();
@@ -90,7 +90,7 @@ public sealed class PostServiceTests : IAsyncDisposable
     [Fact]
     public async Task CreateAsync_with_empty_text_throws()
     {
-        var command = new CreatePostCommand(_gameId, "   ", null);
+        var command = new CreatePostCommand(_gameId, "   ", null, null);
         var act = () => _service.CreateAsync(_authorId, command, CancellationToken.None);
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Post text is required.");
@@ -99,7 +99,7 @@ public sealed class PostServiceTests : IAsyncDisposable
     [Fact]
     public async Task CreateAsync_with_text_too_long_throws()
     {
-        var command = new CreatePostCommand(_gameId, new string('a', 1001), null);
+        var command = new CreatePostCommand(_gameId, new string('a', 1001), null, null);
         var act = () => _service.CreateAsync(_authorId, command, CancellationToken.None);
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Post text cannot be longer than 1000 characters.");
@@ -108,7 +108,7 @@ public sealed class PostServiceTests : IAsyncDisposable
     [Fact]
     public async Task CreateAsync_with_invalid_mood_throws()
     {
-        var command = new CreatePostCommand(_gameId, "Hello!", "Raging");
+        var command = new CreatePostCommand(_gameId, "Hello!", "Raging", null);
         var act = () => _service.CreateAsync(_authorId, command, CancellationToken.None);
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Invalid mood value.");
@@ -117,7 +117,7 @@ public sealed class PostServiceTests : IAsyncDisposable
     [Fact]
     public async Task CreateAsync_with_unknown_game_throws()
     {
-        var command = new CreatePostCommand(Guid.NewGuid(), "Hello!", null);
+        var command = new CreatePostCommand(Guid.NewGuid(), "Hello!", null, null);
         var act = () => _service.CreateAsync(_authorId, command, CancellationToken.None);
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Game was not found.");
@@ -126,8 +126,8 @@ public sealed class PostServiceTests : IAsyncDisposable
     [Fact]
     public async Task GetFeedAsync_returns_posts_newest_first()
     {
-        var older = new CreatePostCommand(_gameId, "First post", null);
-        var newer = new CreatePostCommand(_gameId, "Second post", null);
+        var older = new CreatePostCommand(_gameId, "First post", null, null);
+        var newer = new CreatePostCommand(_gameId, "Second post", null, null);
         await _service.CreateAsync(_authorId, older, CancellationToken.None);
         await Task.Delay(10);
         await _service.CreateAsync(_authorId, newer, CancellationToken.None);

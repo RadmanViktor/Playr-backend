@@ -1,14 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using Playr.Application.Posts;
+using Playr.Application.Storage;
 using Playr.Domain.Posts;
 using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Posts;
 
-public sealed class PostService(PlayrDbContext dbContext) : IPostService
+public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fileStorageService) : IPostService
 {
     private const int MaxTextLength = 1000;
     private const int FeedSize = 50;
+    private const string MediaSubFolder = "posts";
 
     public async Task<PostDto> CreateAsync(Guid authorId, CreatePostCommand command, CancellationToken cancellationToken)
     {
@@ -30,6 +32,16 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
         if (!gameExists)
             throw new InvalidOperationException("Game was not found.");
 
+        string? mediaUrl = null;
+        PostMediaType? mediaType = null;
+        if (command.Media is not null)
+        {
+            var (type, extension) = PostMediaValidator.Validate(command.Media);
+            var saved = await fileStorageService.SaveAsync(command.Media.Content, extension, MediaSubFolder, cancellationToken);
+            mediaUrl = saved.RelativeUrl;
+            mediaType = type;
+        }
+
         var post = new Post
         {
             Id = Guid.NewGuid(),
@@ -37,6 +49,8 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
             GameId = command.GameId,
             TextContent = text,
             Mood = mood,
+            MediaUrl = mediaUrl,
+            MediaType = mediaType,
             CreatedAt = DateTimeOffset.UtcNow,
         };
         dbContext.Posts.Add(post);
@@ -79,6 +93,22 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
         if (post.AuthorId != requesterId)
             throw new InvalidOperationException("You are not allowed to edit this post.");
 
+        if (command.Media is not null)
+        {
+            var (type, extension) = PostMediaValidator.Validate(command.Media);
+            var saved = await fileStorageService.SaveAsync(command.Media.Content, extension, MediaSubFolder, cancellationToken);
+            if (post.MediaUrl is not null)
+                fileStorageService.Delete(post.MediaUrl);
+            post.MediaUrl = saved.RelativeUrl;
+            post.MediaType = type;
+        }
+        else if (command.RemoveMedia && post.MediaUrl is not null)
+        {
+            fileStorageService.Delete(post.MediaUrl);
+            post.MediaUrl = null;
+            post.MediaType = null;
+        }
+
         post.TextContent = text;
         post.Mood = mood;
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -94,6 +124,9 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
 
         if (post.AuthorId != requesterId)
             throw new InvalidOperationException("You are not allowed to delete this post.");
+
+        if (post.MediaUrl is not null)
+            fileStorageService.Delete(post.MediaUrl);
 
         dbContext.Posts.Remove(post);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -197,6 +230,8 @@ public sealed class PostService(PlayrDbContext dbContext) : IPostService
                 game.CoverImageUrl,
                 post.TextContent,
                 post.Mood?.ToString(),
+                post.MediaUrl,
+                post.MediaType?.ToString(),
                 post.CreatedAt,
                 likeCountMap.GetValueOrDefault(post.Id, 0),
                 likedByCurrentUser.Contains(post.Id));

@@ -17,6 +17,27 @@ public sealed class HttpPostsFlowTests : IClassFixture<PlayrWebApplicationFactor
         _factory = factory;
     }
 
+    private static Task<HttpResponseMessage> PostPostFormAsync(HttpClient client, Guid gameId, string text, string? mood)
+    {
+        var form = new MultipartFormDataContent
+        {
+            { new StringContent(gameId.ToString()), "GameId" },
+            { new StringContent(text), "TextContent" },
+        };
+        if (mood is not null) form.Add(new StringContent(mood), "Mood");
+        return client.PostAsync("/api/posts", form);
+    }
+
+    private static Task<HttpResponseMessage> PutPostFormAsync(HttpClient client, Guid postId, string text, string? mood)
+    {
+        var form = new MultipartFormDataContent
+        {
+            { new StringContent(text), "TextContent" },
+        };
+        if (mood is not null) form.Add(new StringContent(mood), "Mood");
+        return client.PutAsync($"/api/posts/{postId}", form);
+    }
+
     [Fact]
     public async Task Can_register_login_get_games_create_post_and_read_feed()
     {
@@ -39,8 +60,7 @@ public sealed class HttpPostsFlowTests : IClassFixture<PlayrWebApplicationFactor
         var gameId = games![0].Id;
 
         // POST /api/posts creates a post
-        var createResponse = await client.PostAsJsonAsync("/api/posts",
-            new CreatePostRequest(gameId, "Cleared the final boss!", "Enjoying"));
+        var createResponse = await PostPostFormAsync(client, gameId, "Cleared the final boss!", "Enjoying");
         createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var created = await createResponse.Content.ReadFromJsonAsync<PostResponse>();
         created.Should().NotBeNull();
@@ -60,8 +80,7 @@ public sealed class HttpPostsFlowTests : IClassFixture<PlayrWebApplicationFactor
     public async Task Create_post_without_auth_returns_401()
     {
         using var client = _factory.CreateClient();
-        var response = await client.PostAsJsonAsync("/api/posts",
-            new CreatePostRequest(Guid.NewGuid(), "Hello!", null));
+        var response = await PostPostFormAsync(client, Guid.NewGuid(), "Hello!", null);
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
@@ -98,12 +117,10 @@ public sealed class HttpPostsFlowTests : IClassFixture<PlayrWebApplicationFactor
         var games = await gamesResponse.Content.ReadFromJsonAsync<List<GameResponse>>();
         var gameId = games![0].Id;
 
-        var createResponse = await client.PostAsJsonAsync("/api/posts",
-            new CreatePostRequest(gameId, "Original text", null));
+        var createResponse = await PostPostFormAsync(client, gameId, "Original text", null);
         var created = await createResponse.Content.ReadFromJsonAsync<PostResponse>();
 
-        var updateResponse = await client.PutAsJsonAsync($"/api/posts/{created!.Id}",
-            new UpdatePostRequest("Edited text", "Completed"));
+        var updateResponse = await PutPostFormAsync(client, created!.Id, "Edited text", "Completed");
         updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var updated = await updateResponse.Content.ReadFromJsonAsync<PostResponse>();
         updated!.TextContent.Should().Be("Edited text");
@@ -126,8 +143,7 @@ public sealed class HttpPostsFlowTests : IClassFixture<PlayrWebApplicationFactor
         var gameId = games![0].Id;
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        var createResponse = await client.PostAsJsonAsync("/api/posts",
-            new CreatePostRequest(gameId, "Owner's post", null));
+        var createResponse = await PostPostFormAsync(client, gameId, "Owner's post", null);
         var created = await createResponse.Content.ReadFromJsonAsync<PostResponse>();
 
         await client.PostAsJsonAsync("/api/auth/register",
@@ -137,8 +153,7 @@ public sealed class HttpPostsFlowTests : IClassFixture<PlayrWebApplicationFactor
         var intruderToken = (await intruderLogin.Content.ReadFromJsonAsync<LoginResponse>())!.AccessToken;
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", intruderToken);
-        var updateResponse = await client.PutAsJsonAsync($"/api/posts/{created!.Id}",
-            new UpdatePostRequest("Hacked!", null));
+        var updateResponse = await PutPostFormAsync(client, created!.Id, "Hacked!", null);
         updateResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
@@ -159,8 +174,7 @@ public sealed class HttpPostsFlowTests : IClassFixture<PlayrWebApplicationFactor
         var games = await gamesResponse.Content.ReadFromJsonAsync<List<GameResponse>>();
         var gameId = games![0].Id;
 
-        var createResponse = await client.PostAsJsonAsync("/api/posts",
-            new CreatePostRequest(gameId, "To be deleted", null));
+        var createResponse = await PostPostFormAsync(client, gameId, "To be deleted", null);
         var created = await createResponse.Content.ReadFromJsonAsync<PostResponse>();
 
         var deleteResponse = await client.DeleteAsync($"/api/posts/{created!.Id}");

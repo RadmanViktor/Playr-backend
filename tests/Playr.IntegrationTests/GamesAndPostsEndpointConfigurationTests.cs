@@ -76,7 +76,7 @@ public class GamesAndPostsEndpointConfigurationTests
         };
 
         var result = await controller.Create(
-            new Playr.Api.Models.Posts.CreatePostRequest(Guid.NewGuid(), "Hello!", null),
+            new Playr.Api.Models.Posts.CreatePostRequest { GameId = Guid.NewGuid(), TextContent = "Hello!" },
             CancellationToken.None);
 
         var unauthorized = result.Result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
@@ -114,7 +114,7 @@ public class GamesAndPostsEndpointConfigurationTests
 
         var result = await controller.Update(
             Guid.NewGuid(),
-            new Playr.Api.Models.Posts.UpdatePostRequest("Hello", null),
+            new Playr.Api.Models.Posts.UpdatePostRequest { TextContent = "Hello" },
             CancellationToken.None);
 
         var unauthorized = result.Result.Should().BeOfType<UnauthorizedObjectResult>().Subject;

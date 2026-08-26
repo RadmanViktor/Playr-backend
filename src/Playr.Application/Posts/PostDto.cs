@@ -11,6 +11,8 @@ public sealed record PostDto(
     string? GameCoverImageUrl,
     string TextContent,
     string? Mood,
+    string? MediaUrl,
+    string? MediaType,
     DateTimeOffset CreatedAt,
     int LikesCount,
     bool LikedByCurrentUser);

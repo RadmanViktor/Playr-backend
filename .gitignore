@@ -2,3 +2,7 @@ bin/
 obj/
 .superpowers/
 .worktrees/
+
+# Uploaded media (local dev storage)
+src/Playr.Api/wwwroot/uploads/**
+!src/Playr.Api/wwwroot/uploads/**/.gitkeep

@@ -12,7 +12,7 @@ public sealed class PostsController(IPostService postService) : ControllerBase
 {
     [Authorize]
     [HttpPost]
-    public async Task<ActionResult<PostResponse>> Create(CreatePostRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<PostResponse>> Create([FromForm] CreatePostRequest request, CancellationToken cancellationToken)
     {
         if (!User.TryGetUserId(out var userId))
             return Unauthorized(new { error = "User id claim is missing or invalid." });
@@ -20,7 +20,7 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         try
         {
             var post = await postService.CreateAsync(userId,
-                new CreatePostCommand(request.GameId, request.TextContent, request.Mood),
+                new CreatePostCommand(request.GameId, request.TextContent, request.Mood, ToMediaInput(request.Media)),
                 cancellationToken);
             return CreatedAtAction(nameof(GetFeed), ToResponse(post));
         }
@@ -40,7 +40,7 @@ public sealed class PostsController(IPostService postService) : ControllerBase
 
     [Authorize]
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<PostResponse>> Update(Guid id, UpdatePostRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<PostResponse>> Update(Guid id, [FromForm] UpdatePostRequest request, CancellationToken cancellationToken)
     {
         if (!User.TryGetUserId(out var userId))
             return Unauthorized(new { error = "User id claim is missing or invalid." });
@@ -48,7 +48,7 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         try
         {
             var post = await postService.UpdateAsync(id, userId,
-                new UpdatePostCommand(request.TextContent, request.Mood),
+                new UpdatePostCommand(request.TextContent, request.Mood, ToMediaInput(request.Media), request.RemoveMedia),
                 cancellationToken);
             return Ok(ToResponse(post));
         }
@@ -88,6 +88,14 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         }
     }
 
+    private static PostMediaInput? ToMediaInput(IFormFile? file)
+    {
+        if (file is null || file.Length == 0)
+            return null;
+
+        return new PostMediaInput(file.OpenReadStream(), file.FileName, file.ContentType, file.Length);
+    }
+
     private static PostResponse ToResponse(PostDto post) => new(
         post.Id,
         post.AuthorId,
@@ -99,6 +107,8 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         post.GameCoverImageUrl,
         post.TextContent,
         post.Mood,
+        post.MediaUrl,
+        post.MediaType,
         post.CreatedAt,
         post.LikesCount,
         post.LikedByCurrentUser);
