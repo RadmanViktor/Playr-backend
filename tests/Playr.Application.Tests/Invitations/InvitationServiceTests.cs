@@ -86,7 +86,7 @@ public sealed class InvitationServiceTests
             var dbContext = new PlayrDbContext(options);
             await dbContext.Database.EnsureCreatedAsync();
             var chatService = new ChatService(dbContext, new NoOpChatNotifier());
-            var fixture = new InvitationFixture(connection, dbContext, new InvitationService(dbContext, chatService));
+            var fixture = new InvitationFixture(connection, dbContext, new InvitationService(dbContext, chatService, new NoOpInvitationNotifier()));
             fixture.AddUser(fixture.SenderUserId, "sender", "Sender");
             fixture.AddUser(fixture.RecipientUserId, "recipient", "Recipient");
             await dbContext.SaveChangesAsync();

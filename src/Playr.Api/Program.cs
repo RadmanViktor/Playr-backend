@@ -7,6 +7,7 @@ using Playr.Api.Chat;
 using Playr.Api.Hubs;
 using Playr.Application.Auth;
 using Playr.Application.Chat;
+using Playr.Application.Invitations;
 using Playr.Infrastructure;
 using Playr.Api.Steam;
 
@@ -24,6 +25,7 @@ builder.Services.AddScoped<SteamLinkStateSigner>();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, ChatUserIdProvider>();
 builder.Services.AddScoped<IChatNotifier, SignalRChatNotifier>();
+builder.Services.AddScoped<IInvitationNotifier, Playr.Api.Invitations.SignalRInvitationNotifier>();
 
 builder.Services.AddCors(options =>
 {

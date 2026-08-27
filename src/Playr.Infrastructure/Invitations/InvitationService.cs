@@ -6,7 +6,7 @@ using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Invitations;
 
-public sealed class InvitationService(PlayrDbContext dbContext, IChatService chatService) : IInvitationService
+public sealed class InvitationService(PlayrDbContext dbContext, IChatService chatService, IInvitationNotifier invitationNotifier) : IInvitationService
 {
     private const int MaxMessageLength = 500;
 
@@ -58,7 +58,9 @@ public sealed class InvitationService(PlayrDbContext dbContext, IChatService cha
         dbContext.Invitations.Add(invitation);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return await LoadDtoAsync(invitation.Id, cancellationToken);
+        var dto = await LoadDtoAsync(invitation.Id, cancellationToken);
+        await invitationNotifier.NotifyInvitationCreatedAsync(dto, cancellationToken);
+        return dto;
     }
 
     public async Task<IReadOnlyList<InvitationDto>> GetIncomingAsync(Guid userId, CancellationToken cancellationToken)
@@ -111,7 +113,9 @@ public sealed class InvitationService(PlayrDbContext dbContext, IChatService cha
             new SendChatMessageCommand(invitation.Message),
             cancellationToken);
 
-        return await LoadDtoAsync(invitation.Id, cancellationToken);
+        var dto = await LoadDtoAsync(invitation.Id, cancellationToken);
+        await invitationNotifier.NotifyInvitationUpdatedAsync(dto, cancellationToken);
+        return dto;
     }
 
     public async Task<InvitationDto> DeclineAsync(Guid userId, Guid invitationId, CancellationToken cancellationToken)
@@ -134,7 +138,9 @@ public sealed class InvitationService(PlayrDbContext dbContext, IChatService cha
         invitation.RespondedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return await LoadDtoAsync(invitation.Id, cancellationToken);
+        var dto = await LoadDtoAsync(invitation.Id, cancellationToken);
+        await invitationNotifier.NotifyInvitationUpdatedAsync(dto, cancellationToken);
+        return dto;
     }
 
     public async Task<InvitationDto> CancelAsync(Guid userId, Guid invitationId, CancellationToken cancellationToken)
@@ -157,7 +163,9 @@ public sealed class InvitationService(PlayrDbContext dbContext, IChatService cha
         invitation.RespondedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return await LoadDtoAsync(invitation.Id, cancellationToken);
+        var dto = await LoadDtoAsync(invitation.Id, cancellationToken);
+        await invitationNotifier.NotifyInvitationUpdatedAsync(dto, cancellationToken);
+        return dto;
     }
 
     private async Task<InvitationDto> LoadDtoAsync(Guid invitationId, CancellationToken cancellationToken)
