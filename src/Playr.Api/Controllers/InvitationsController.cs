@@ -95,6 +95,25 @@ public sealed class InvitationsController(IInvitationService invitationService) 
         }
     }
 
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<ActionResult<InvitationResponse>> Cancel(Guid id, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        try
+        {
+            var invitation = await invitationService.CancelAsync(userId, id, cancellationToken);
+            return Ok(ToResponse(invitation));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     private static InvitationResponse ToResponse(InvitationDto invitation) => new(
         invitation.Id,
         invitation.SenderUserId,

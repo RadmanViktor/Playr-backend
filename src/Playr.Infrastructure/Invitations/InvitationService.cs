@@ -141,6 +141,29 @@ public sealed class InvitationService(PlayrDbContext dbContext) : IInvitationSer
         return await LoadDtoAsync(invitation.Id, cancellationToken);
     }
 
+    public async Task<InvitationDto> CancelAsync(Guid userId, Guid invitationId, CancellationToken cancellationToken)
+    {
+        var invitation = await dbContext.Invitations
+            .FirstOrDefaultAsync(i => i.Id == invitationId, cancellationToken)
+            ?? throw new InvalidOperationException("Invitation was not found.");
+
+        if (invitation.SenderUserId != userId)
+        {
+            throw new InvalidOperationException("Only the sender can cancel this invitation.");
+        }
+
+        if (invitation.Status != InvitationStatus.Pending)
+        {
+            throw new InvalidOperationException("This invitation has already been responded to.");
+        }
+
+        invitation.Status = InvitationStatus.Cancelled;
+        invitation.RespondedAt = DateTimeOffset.UtcNow;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await LoadDtoAsync(invitation.Id, cancellationToken);
+    }
+
     private async Task<bool> AreFriendsAsync(Guid userId1, Guid userId2, CancellationToken cancellationToken)
     {
         var (userAId, userBId) = OrderPair(userId1, userId2);

@@ -33,15 +33,16 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         }
 
         RelationshipStatus? relationshipStatus = null;
+        Guid? pendingInvitationId = null;
         if (currentUserId is Guid uid && uid != profile.UserId)
         {
-            relationshipStatus = await GetRelationshipStatusAsync(uid, profile.UserId, cancellationToken);
+            (relationshipStatus, pendingInvitationId) = await GetRelationshipStatusAsync(uid, profile.UserId, cancellationToken);
         }
 
-        return ToDto(profile, relationshipStatus);
+        return ToDto(profile, relationshipStatus, pendingInvitationId);
     }
 
-    private async Task<RelationshipStatus> GetRelationshipStatusAsync(
+    private async Task<(RelationshipStatus Status, Guid? PendingInvitationId)> GetRelationshipStatusAsync(
         Guid currentUserId, Guid otherUserId, CancellationToken cancellationToken)
     {
         var isFriend = await dbContext.Friendships.AsNoTracking()
@@ -51,16 +52,23 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
                 cancellationToken);
         if (isFriend)
         {
-            return RelationshipStatus.Friends;
+            return (RelationshipStatus.Friends, null);
         }
 
-        var hasPendingInvitation = await dbContext.Invitations.AsNoTracking()
-            .AnyAsync(i => i.Status == InvitationStatus.Pending &&
+        var pendingInvitation = await dbContext.Invitations.AsNoTracking()
+            .Where(i => i.Status == InvitationStatus.Pending &&
                 ((i.SenderUserId == currentUserId && i.RecipientUserId == otherUserId) ||
-                 (i.SenderUserId == otherUserId && i.RecipientUserId == currentUserId)),
-                cancellationToken);
+                 (i.SenderUserId == otherUserId && i.RecipientUserId == currentUserId)))
+            .Select(i => new { i.Id, i.SenderUserId })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        return hasPendingInvitation ? RelationshipStatus.InvitePending : RelationshipStatus.None;
+        if (pendingInvitation is null)
+        {
+            return (RelationshipStatus.None, null);
+        }
+
+        var cancellableId = pendingInvitation.SenderUserId == currentUserId ? pendingInvitation.Id : (Guid?)null;
+        return (RelationshipStatus.InvitePending, cancellableId);
     }
 
     public async Task<ProfileDto?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
@@ -177,7 +185,7 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         return ToDto(profile);
     }
 
-    private static ProfileDto ToDto(UserProfile profile, RelationshipStatus? relationshipStatus = null) => new(
+    private static ProfileDto ToDto(UserProfile profile, RelationshipStatus? relationshipStatus = null, Guid? pendingInvitationId = null) => new(
         profile.UserId,
         profile.Username,
         profile.DisplayName,
@@ -194,7 +202,8 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         profile.LookingForPlayStyle,
         profile.CreatedAt,
         profile.UpdatedAt,
-        relationshipStatus);
+        relationshipStatus,
+        pendingInvitationId);
 
     private static List<string> NormalizeList(IReadOnlyList<string>? values, string name)
     {
@@ -333,25 +342,36 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
             .ToListAsync(cancellationToken);
         var friendSet = friendUserIds.ToHashSet();
 
-        var pendingInvitationUserIds = await dbContext.Invitations.AsNoTracking()
+        var pendingInvitations = await dbContext.Invitations.AsNoTracking()
             .Where(i => i.Status == InvitationStatus.Pending &&
                 ((i.SenderUserId == currentUserId) || (i.RecipientUserId == currentUserId)))
-            .Select(i => i.SenderUserId == currentUserId ? i.RecipientUserId : i.SenderUserId)
+            .Select(i => new
+            {
+                OtherUserId = i.SenderUserId == currentUserId ? i.RecipientUserId : i.SenderUserId,
+                i.Id,
+                i.SenderUserId,
+            })
             .ToListAsync(cancellationToken);
-        var pendingSet = pendingInvitationUserIds.ToHashSet();
+        var pendingByOtherUser = pendingInvitations.ToDictionary(i => i.OtherUserId, i => i);
 
-        return players.Select(p => new LookingForGamePlayerDto(
-            p.UserId,
-            p.Username,
-            p.DisplayName,
-            p.AvatarUrl,
-            p.LookingForGameId,
-            p.LookingForGame?.Name,
-            p.LookingForPlayStyle,
-            friendSet.Contains(p.UserId)
-                ? RelationshipStatus.Friends
-                : pendingSet.Contains(p.UserId)
-                    ? RelationshipStatus.InvitePending
-                    : RelationshipStatus.None)).ToList();
+        return players.Select(p =>
+        {
+            var pending = pendingByOtherUser.GetValueOrDefault(p.UserId);
+            var cancellableId = pending is not null && pending.SenderUserId == currentUserId ? pending.Id : (Guid?)null;
+            return new LookingForGamePlayerDto(
+                p.UserId,
+                p.Username,
+                p.DisplayName,
+                p.AvatarUrl,
+                p.LookingForGameId,
+                p.LookingForGame?.Name,
+                p.LookingForPlayStyle,
+                friendSet.Contains(p.UserId)
+                    ? RelationshipStatus.Friends
+                    : pending is not null
+                        ? RelationshipStatus.InvitePending
+                        : RelationshipStatus.None,
+                cancellableId);
+        }).ToList();
     }
 }

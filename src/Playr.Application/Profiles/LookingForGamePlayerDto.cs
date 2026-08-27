@@ -11,4 +11,5 @@ public sealed record LookingForGamePlayerDto(
     Guid? LookingForGameId,
     string? LookingForGameName,
     PlayStyle? LookingForPlayStyle,
-    RelationshipStatus RelationshipStatus);
+    RelationshipStatus RelationshipStatus,
+    Guid? PendingInvitationId = null);

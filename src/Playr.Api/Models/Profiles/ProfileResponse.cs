@@ -19,4 +19,5 @@ public sealed record ProfileResponse(
     PlayStyle? LookingForPlayStyle,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    string? RelationshipStatus = null);
+    string? RelationshipStatus = null,
+    Guid? PendingInvitationId = null);

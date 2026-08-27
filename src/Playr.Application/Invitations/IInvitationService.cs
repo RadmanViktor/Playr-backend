@@ -7,4 +7,5 @@ public interface IInvitationService
     Task<IReadOnlyList<InvitationDto>> GetSentAsync(Guid userId, CancellationToken cancellationToken);
     Task<InvitationDto> AcceptAsync(Guid userId, Guid invitationId, CancellationToken cancellationToken);
     Task<InvitationDto> DeclineAsync(Guid userId, Guid invitationId, CancellationToken cancellationToken);
+    Task<InvitationDto> CancelAsync(Guid userId, Guid invitationId, CancellationToken cancellationToken);
 }

@@ -129,7 +129,8 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
         profile.LookingForPlayStyle,
         profile.CreatedAt,
         profile.UpdatedAt,
-        profile.RelationshipStatus?.ToString());
+        profile.RelationshipStatus?.ToString(),
+        profile.PendingInvitationId);
 
     [HttpGet("search")]
     public async Task<ActionResult<IReadOnlyList<ProfileSearchResponse>>> Search(
@@ -158,6 +159,7 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
             p.LookingForGameId,
             p.LookingForGameName,
             p.LookingForPlayStyle,
-            p.RelationshipStatus.ToString())).ToList());
+            p.RelationshipStatus.ToString(),
+            p.PendingInvitationId)).ToList());
     }
 }
