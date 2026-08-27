@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Playr.Application.Comments;
 using Playr.Application.Common;
+using Playr.Domain.Comments;
 using Playr.Domain.Posts;
 using Playr.Infrastructure.Data;
 
@@ -33,11 +34,11 @@ public sealed class CommentService(PlayrDbContext dbContext) : ICommentService
         dbContext.PostComments.Add(comment);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var dtos = await MapToCommentDtoAsync([comment], cancellationToken);
+        var dtos = await MapToCommentDtoAsync([comment], authorId, cancellationToken);
         return dtos[0];
     }
 
-    public async Task<PagedResult<CommentDto>> GetPagedAsync(Guid postId, int skip, int take, CancellationToken cancellationToken)
+    public async Task<PagedResult<CommentDto>> GetPagedAsync(Guid postId, Guid? currentUserId, int skip, int take, CancellationToken cancellationToken)
     {
         var postExists = await dbContext.Posts.AnyAsync(p => p.Id == postId, cancellationToken);
         if (!postExists)
@@ -53,7 +54,7 @@ public sealed class CommentService(PlayrDbContext dbContext) : ICommentService
             .Take(take)
             .ToListAsync(cancellationToken);
 
-        var dtos = await MapToCommentDtoAsync(comments, cancellationToken);
+        var dtos = await MapToCommentDtoAsync(comments, currentUserId, cancellationToken);
         var hasMore = skip + comments.Count < totalCount;
         return new PagedResult<CommentDto>(dtos, totalCount, hasMore);
     }
@@ -76,7 +77,7 @@ public sealed class CommentService(PlayrDbContext dbContext) : ICommentService
         comment.UpdatedAt = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var dtos = await MapToCommentDtoAsync([comment], cancellationToken);
+        var dtos = await MapToCommentDtoAsync([comment], requesterId, cancellationToken);
         return dtos[0];
     }
 
@@ -92,7 +93,77 @@ public sealed class CommentService(PlayrDbContext dbContext) : ICommentService
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task<IReadOnlyList<CommentDto>> MapToCommentDtoAsync(IList<PostComment> comments, CancellationToken cancellationToken)
+    public async Task<CommentReactionSummary> SetReactionAsync(Guid postId, Guid commentId, Guid userId, ReactionType type, CancellationToken cancellationToken)
+    {
+        var comment = await dbContext.PostComments.FirstOrDefaultAsync(c => c.Id == commentId && c.PostId == postId, cancellationToken)
+            ?? throw new InvalidOperationException("Comment was not found.");
+
+        var existing = await dbContext.CommentReactions
+            .FirstOrDefaultAsync(r => r.CommentId == comment.Id && r.UserId == userId, cancellationToken);
+
+        if (existing is null)
+        {
+            dbContext.CommentReactions.Add(new CommentReaction
+            {
+                CommentId = comment.Id,
+                UserId = userId,
+                Type = type,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+        }
+        else if (existing.Type == type)
+        {
+            dbContext.CommentReactions.Remove(existing);
+        }
+        else
+        {
+            existing.Type = type;
+            existing.CreatedAt = DateTimeOffset.UtcNow;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await BuildReactionSummaryAsync(comment.Id, userId, cancellationToken);
+    }
+
+    public async Task<CommentReactionSummary> RemoveReactionAsync(Guid postId, Guid commentId, Guid userId, CancellationToken cancellationToken)
+    {
+        var comment = await dbContext.PostComments.FirstOrDefaultAsync(c => c.Id == commentId && c.PostId == postId, cancellationToken)
+            ?? throw new InvalidOperationException("Comment was not found.");
+
+        var existing = await dbContext.CommentReactions
+            .FirstOrDefaultAsync(r => r.CommentId == comment.Id && r.UserId == userId, cancellationToken);
+        if (existing is not null)
+        {
+            dbContext.CommentReactions.Remove(existing);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return await BuildReactionSummaryAsync(comment.Id, userId, cancellationToken);
+    }
+
+    private async Task<CommentReactionSummary> BuildReactionSummaryAsync(Guid commentId, Guid? currentUserId, CancellationToken cancellationToken)
+    {
+        var reactions = await dbContext.CommentReactions
+            .AsNoTracking()
+            .Where(r => r.CommentId == commentId)
+            .ToListAsync(cancellationToken);
+
+        var counts = BuildCounts(reactions);
+        ReactionType? currentUserReaction = currentUserId.HasValue
+            ? reactions.FirstOrDefault(r => r.UserId == currentUserId.Value)?.Type
+            : null;
+
+        return new CommentReactionSummary(counts, currentUserReaction);
+    }
+
+    private static ReactionCounts BuildCounts(IReadOnlyCollection<CommentReaction> reactions) => new(
+        reactions.Count(r => r.Type == ReactionType.Like),
+        reactions.Count(r => r.Type == ReactionType.Haha),
+        reactions.Count(r => r.Type == ReactionType.Wow),
+        reactions.Count(r => r.Type == ReactionType.Sad),
+        reactions.Count(r => r.Type == ReactionType.Angry));
+
+    private async Task<IReadOnlyList<CommentDto>> MapToCommentDtoAsync(IList<PostComment> comments, Guid? currentUserId, CancellationToken cancellationToken)
     {
         var authorIds = comments.Select(c => c.AuthorId).Distinct().ToList();
         var profiles = await dbContext.UserProfiles
@@ -101,9 +172,24 @@ public sealed class CommentService(PlayrDbContext dbContext) : ICommentService
             .ToListAsync(cancellationToken);
         var profileMap = profiles.ToDictionary(up => up.UserId);
 
+        var commentIds = comments.Select(c => c.Id).ToList();
+        var allReactions = await dbContext.CommentReactions
+            .AsNoTracking()
+            .Where(r => commentIds.Contains(r.CommentId))
+            .ToListAsync(cancellationToken);
+        var reactionsByComment = allReactions
+            .GroupBy(r => r.CommentId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         return comments.Select(comment =>
         {
             var profile = profileMap[comment.AuthorId];
+            var commentReactions = reactionsByComment.TryGetValue(comment.Id, out var list) ? list : [];
+            var counts = BuildCounts(commentReactions);
+            ReactionType? currentUserReaction = currentUserId.HasValue
+                ? commentReactions.FirstOrDefault(r => r.UserId == currentUserId.Value)?.Type
+                : null;
+
             return new CommentDto(
                 comment.Id,
                 comment.PostId,
@@ -113,7 +199,8 @@ public sealed class CommentService(PlayrDbContext dbContext) : ICommentService
                 profile.AvatarUrl,
                 comment.TextContent,
                 comment.CreatedAt,
-                comment.UpdatedAt);
+                comment.UpdatedAt,
+                new CommentReactionSummary(counts, currentUserReaction));
         }).ToList();
     }
 }
