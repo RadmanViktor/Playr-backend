@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Playr.Infrastructure.Steam;
@@ -15,16 +16,20 @@ public sealed record SteamAchievementResult(string ApiName, string? DisplayName,
 /// <summary>
 /// Typed client for the Steam Web API (https://api.steampowered.com).
 /// </summary>
-public sealed class SteamApiClient(HttpClient httpClient, IOptions<SteamOptions> options)
+public sealed class SteamApiClient(HttpClient httpClient, IOptions<SteamOptions> options, ILogger<SteamApiClient> logger)
 {
     private readonly SteamOptions _options = options.Value;
 
     public async Task<SteamPlayerSummaryResult?> GetPlayerSummaryAsync(string steamId, CancellationToken cancellationToken)
     {
+        WarnIfApiKeyMissing();
         var url = $"/ISteamUser/GetPlayerSummaries/v2/?key={_options.ApiKey}&steamids={steamId}";
         using var response = await httpClient.GetAsync(url, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
+            logger.LogWarning(
+                "Steam GetPlayerSummaries failed for steamId {SteamId} with status {StatusCode}.",
+                steamId, (int)response.StatusCode);
             return null;
         }
 
@@ -45,10 +50,14 @@ public sealed class SteamApiClient(HttpClient httpClient, IOptions<SteamOptions>
     /// </summary>
     public async Task<IReadOnlyList<SteamOwnedGameResult>> GetOwnedGamesAsync(string steamId, CancellationToken cancellationToken)
     {
+        WarnIfApiKeyMissing();
         var url = $"/IPlayerService/GetOwnedGames/v1/?key={_options.ApiKey}&steamid={steamId}&include_appinfo=true&include_played_free_games=true";
         using var response = await httpClient.GetAsync(url, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
+            logger.LogWarning(
+                "Steam GetOwnedGames failed for steamId {SteamId} with status {StatusCode}.",
+                steamId, (int)response.StatusCode);
             return [];
         }
 
@@ -100,11 +109,16 @@ public sealed class SteamApiClient(HttpClient httpClient, IOptions<SteamOptions>
 
     private async Task<List<PlayerAchievement>> GetPlayerAchievementsAsync(string steamId, long appId, CancellationToken cancellationToken)
     {
+        WarnIfApiKeyMissing();
         var url = $"/ISteamUserStats/GetPlayerAchievements/v1/?key={_options.ApiKey}&steamid={steamId}&appid={appId}";
         using var response = await httpClient.GetAsync(url, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             // Steam returns 400 for games with no stats, and for private profiles.
+            logger.LogWarning(
+                "Steam GetPlayerAchievements failed for steamId {SteamId}, appId {AppId} with status {StatusCode}. " +
+                "This is expected for private profiles or games without stats, but may also indicate a missing/invalid Steam API key.",
+                steamId, appId, (int)response.StatusCode);
             return [];
         }
 
@@ -114,15 +128,37 @@ public sealed class SteamApiClient(HttpClient httpClient, IOptions<SteamOptions>
 
     private async Task<List<SchemaAchievement>> GetSchemaAchievementsAsync(long appId, CancellationToken cancellationToken)
     {
+        WarnIfApiKeyMissing();
         var url = $"/ISteamUserStats/GetSchemaForGame/v2/?key={_options.ApiKey}&appid={appId}";
         using var response = await httpClient.GetAsync(url, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
+            logger.LogWarning(
+                "Steam GetSchemaForGame failed for appId {AppId} with status {StatusCode}.",
+                appId, (int)response.StatusCode);
             return [];
         }
 
         var payload = await response.Content.ReadFromJsonAsync<SchemaEnvelope>(JsonOptions, cancellationToken);
         return payload?.Game?.AvailableGameStats?.Achievements ?? [];
+    }
+
+    private bool _hasWarnedAboutApiKey;
+
+    private void WarnIfApiKeyMissing()
+    {
+        if (_hasWarnedAboutApiKey)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_options.ApiKey) || _options.ApiKey == "CHANGE-ME")
+        {
+            _hasWarnedAboutApiKey = true;
+            logger.LogWarning(
+                "Steam:ApiKey is not configured (still set to the default placeholder or empty). " +
+                "All Steam Web API calls will fail and silently be treated as 'no data' by callers.");
+        }
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
