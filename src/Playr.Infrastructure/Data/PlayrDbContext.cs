@@ -10,6 +10,7 @@ using Playr.Domain.Identity;
 using Playr.Domain.Invitations;
 using Playr.Domain.Posts;
 using Playr.Domain.Profiles;
+using Playr.Domain.Steam;
 using System.Text.Json;
 
 namespace Playr.Infrastructure.Data;
@@ -28,6 +29,9 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<SteamAccount> SteamAccounts => Set<SteamAccount>();
+    public DbSet<SteamOwnedGame> SteamOwnedGames => Set<SteamOwnedGame>();
+    public DbSet<SteamAchievement> SteamAchievements => Set<SteamAchievement>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -311,6 +315,66 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                     .HasConversion(
                         v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
                         v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
+            }
+        });
+
+        builder.Entity<SteamAccount>(steam =>
+        {
+            steam.HasKey(s => s.UserId);
+            steam.Property(s => s.SteamId).HasMaxLength(32).IsRequired();
+            steam.HasIndex(s => s.SteamId).IsUnique();
+            steam.Property(s => s.DisplayName).HasMaxLength(128);
+            steam.Property(s => s.AvatarUrl).HasMaxLength(500);
+            steam.HasOne(s => s.User)
+                .WithMany()
+                .HasForeignKey(s => s.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                steam.Property(s => s.LinkedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                steam.Property(s => s.LastSyncedAt)
+                    .HasConversion(
+                        v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
+                        v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
+            }
+        });
+
+        builder.Entity<SteamOwnedGame>(game =>
+        {
+            game.HasKey(g => g.Id);
+            game.Property(g => g.Name).HasMaxLength(256).IsRequired();
+            game.Property(g => g.IconUrl).HasMaxLength(500);
+            game.HasIndex(g => new { g.UserId, g.AppId }).IsUnique();
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                game.Property(g => g.LastSyncedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+            }
+        });
+
+        builder.Entity<SteamAchievement>(achievement =>
+        {
+            achievement.HasKey(a => a.Id);
+            achievement.Property(a => a.ApiName).HasMaxLength(128).IsRequired();
+            achievement.Property(a => a.DisplayName).HasMaxLength(256);
+            achievement.Property(a => a.IconUrl).HasMaxLength(500);
+            achievement.Property(a => a.IconGrayUrl).HasMaxLength(500);
+            achievement.HasIndex(a => new { a.UserId, a.AppId, a.ApiName }).IsUnique();
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                achievement.Property(a => a.UnlockedAt)
+                    .HasConversion(
+                        v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
+                        v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
+                achievement.Property(a => a.LastSyncedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
             }
         });
     }

@@ -2,9 +2,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 using Playr.Domain.Identity;
 using Playr.Infrastructure.Data;
+using Playr.Infrastructure.Steam;
 
 namespace Playr.Infrastructure;
 
@@ -47,6 +49,16 @@ public static class DependencyInjection
         services.AddScoped<Playr.Application.Friends.IFriendService, Playr.Infrastructure.Friends.FriendService>();
         services.AddScoped<Playr.Application.Chat.IChatService, Playr.Infrastructure.Chat.ChatService>();
         services.AddSingleton<Playr.Application.Storage.IFileStorageService, Playr.Infrastructure.Storage.LocalFileStorageService>();
+
+        services.Configure<SteamOptions>(configuration.GetSection(SteamOptions.SectionName));
+        services.AddHttpClient(nameof(SteamOpenIdService));
+        services.AddHttpClient<SteamApiClient>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.steampowered.com");
+        });
+        services.AddScoped<SteamOpenIdService>();
+        services.AddScoped<Playr.Application.Steam.ISteamService, SteamService>();
+        services.AddHostedService<SteamSyncBackgroundService>();
 
         return services;
     }

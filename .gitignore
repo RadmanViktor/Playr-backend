@@ -3,6 +3,10 @@ obj/
 .superpowers/
 .worktrees/
 
+# Local dev process artifacts
+*.pid
+*.log
+
 # Uploaded media (local dev storage)
 src/Playr.Api/wwwroot/uploads/**
 !src/Playr.Api/wwwroot/uploads/**/.gitkeep
