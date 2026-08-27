@@ -9,4 +9,5 @@ public sealed record CommentDto(
     string? AuthorAvatarUrl,
     string TextContent,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? UpdatedAt);
+    DateTimeOffset? UpdatedAt,
+    CommentReactionSummary Reactions);
