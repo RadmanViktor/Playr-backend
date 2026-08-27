@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Playr.Domain.Chat;
+using Playr.Domain.Comments;
 using Playr.Domain.Friendships;
 using Playr.Domain.Games;
 using Playr.Domain.Identity;
@@ -21,6 +22,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<PostLike> PostLikes => Set<PostLike>();
     public DbSet<PostComment> PostComments => Set<PostComment>();
+    public DbSet<CommentReaction> CommentReactions => Set<CommentReaction>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
@@ -160,6 +162,31 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                     .HasConversion(
                         v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
                         v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
+            }
+        });
+
+        builder.Entity<CommentReaction>(reaction =>
+        {
+            reaction.HasKey(r => new { r.CommentId, r.UserId });
+            reaction.Property(r => r.Type)
+                .HasConversion<string>()
+                .HasMaxLength(16)
+                .IsRequired();
+            reaction.HasOne(r => r.Comment)
+                .WithMany()
+                .HasForeignKey(r => r.CommentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            reaction.HasOne(r => r.User)
+                .WithMany()
+                .HasForeignKey(r => r.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            reaction.HasIndex(r => r.CommentId);
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                reaction.Property(r => r.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
             }
         });
 
