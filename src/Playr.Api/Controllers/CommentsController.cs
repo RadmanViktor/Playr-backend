@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Playr.Api.Extensions;
 using Playr.Api.Models.Comments;
 using Playr.Application.Comments;
+using Playr.Domain.Comments;
 
 namespace Playr.Api.Controllers;
 
@@ -40,10 +41,11 @@ public sealed class CommentsController(ICommentService commentService) : Control
     {
         var effectiveTake = take <= 0 ? DefaultTake : Math.Min(take, MaxTake);
         var effectiveSkip = Math.Max(skip, 0);
+        Guid? currentUserId = User.TryGetUserId(out var userId) ? userId : null;
 
         try
         {
-            var result = await commentService.GetPagedAsync(postId, effectiveSkip, effectiveTake, cancellationToken);
+            var result = await commentService.GetPagedAsync(postId, currentUserId, effectiveSkip, effectiveTake, cancellationToken);
             return Ok(new PagedCommentResponse(result.Items.Select(ToResponse).ToList(), result.TotalCount, result.HasMore));
         }
         catch (InvalidOperationException ex) when (ex.Message == "Post was not found.")
@@ -100,6 +102,48 @@ public sealed class CommentsController(ICommentService commentService) : Control
         }
     }
 
+    [Authorize]
+    [HttpPut("{commentId:guid}/reactions")]
+    public async Task<ActionResult<CommentReactionResponse>> SetReaction(Guid postId, Guid commentId, SetReactionRequest request, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+
+        if (!Enum.TryParse<ReactionType>(request.Type, ignoreCase: true, out var type))
+        {
+            var validValues = string.Join(", ", Enum.GetNames<ReactionType>());
+            return BadRequest(new { error = $"Invalid reaction type. Valid values are: {validValues}." });
+        }
+
+        try
+        {
+            var summary = await commentService.SetReactionAsync(postId, commentId, userId, type, cancellationToken);
+            return Ok(ToResponse(summary));
+        }
+        catch (InvalidOperationException ex) when (ex.Message == "Comment was not found.")
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
+    [Authorize]
+    [HttpDelete("{commentId:guid}/reactions")]
+    public async Task<ActionResult<CommentReactionResponse>> RemoveReaction(Guid postId, Guid commentId, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+
+        try
+        {
+            var summary = await commentService.RemoveReactionAsync(postId, commentId, userId, cancellationToken);
+            return Ok(ToResponse(summary));
+        }
+        catch (InvalidOperationException ex) when (ex.Message == "Comment was not found.")
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
     private static CommentResponse ToResponse(CommentDto comment) => new(
         comment.Id,
         comment.PostId,
@@ -109,5 +153,10 @@ public sealed class CommentsController(ICommentService commentService) : Control
         comment.AuthorAvatarUrl,
         comment.TextContent,
         comment.CreatedAt,
-        comment.UpdatedAt);
+        comment.UpdatedAt,
+        ToResponse(comment.Reactions));
+
+    private static CommentReactionResponse ToResponse(CommentReactionSummary summary) => new(
+        new ReactionCountsResponse(summary.Counts.Like, summary.Counts.Haha, summary.Counts.Wow, summary.Counts.Sad, summary.Counts.Angry),
+        summary.CurrentUserReaction?.ToString());
 }
