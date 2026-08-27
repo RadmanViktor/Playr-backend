@@ -20,7 +20,7 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         try
         {
             var post = await postService.CreateAsync(userId,
-                new CreatePostCommand(request.GameId, request.TextContent, request.Mood, ToMediaInput(request.Media)),
+                new CreatePostCommand(request.GameId, request.TextContent, request.Mood, ToMediaInputs(request.Media)),
                 cancellationToken);
             return CreatedAtAction(nameof(GetFeed), ToResponse(post));
         }
@@ -48,7 +48,7 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         try
         {
             var post = await postService.UpdateAsync(id, userId,
-                new UpdatePostCommand(request.TextContent, request.Mood, ToMediaInput(request.Media), request.RemoveMedia),
+                new UpdatePostCommand(request.TextContent, request.Mood, ToMediaInputs(request.Media), request.RemoveMediaIds),
                 cancellationToken);
             return Ok(ToResponse(post));
         }
@@ -88,12 +88,15 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         }
     }
 
-    private static PostMediaInput? ToMediaInput(IFormFile? file)
+    private static IReadOnlyList<PostMediaInput> ToMediaInputs(List<IFormFile>? files)
     {
-        if (file is null || file.Length == 0)
-            return null;
+        if (files is null || files.Count == 0)
+            return [];
 
-        return new PostMediaInput(file.OpenReadStream(), file.FileName, file.ContentType, file.Length);
+        return files
+            .Where(f => f.Length > 0)
+            .Select(f => new PostMediaInput(f.OpenReadStream(), f.FileName, f.ContentType, f.Length))
+            .ToList();
     }
 
     private static PostResponse ToResponse(PostDto post) => new(
@@ -107,8 +110,7 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         post.GameCoverImageUrl,
         post.TextContent,
         post.Mood,
-        post.MediaUrl,
-        post.MediaType,
+        post.Media.Select(m => new PostMediaResponse(m.Id, m.Url, m.MediaType, m.SortOrder)).ToList(),
         post.CreatedAt,
         post.LikesCount,
         post.LikedByCurrentUser,

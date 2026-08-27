@@ -10,7 +10,7 @@ public sealed class UpdatePostRequest
 
     public string? Mood { get; set; }
 
-    public IFormFile? Media { get; set; }
+    public List<IFormFile> Media { get; set; } = [];
 
-    public bool RemoveMedia { get; set; }
+    public List<Guid> RemoveMediaIds { get; set; } = [];
 }

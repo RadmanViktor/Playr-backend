@@ -1,5 +1,11 @@
 namespace Playr.Api.Models.Posts;
 
+public sealed record PostMediaResponse(
+    Guid Id,
+    string Url,
+    string MediaType,
+    int SortOrder);
+
 public sealed record PostResponse(
     Guid Id,
     Guid AuthorId,
@@ -11,8 +17,7 @@ public sealed record PostResponse(
     string? GameCoverImageUrl,
     string TextContent,
     string? Mood,
-    string? MediaUrl,
-    string? MediaType,
+    IReadOnlyList<PostMediaResponse> Media,
     DateTimeOffset CreatedAt,
     int LikesCount,
     bool LikedByCurrentUser,

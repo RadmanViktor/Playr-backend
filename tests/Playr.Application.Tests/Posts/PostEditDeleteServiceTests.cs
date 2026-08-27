@@ -69,7 +69,7 @@ public sealed class PostEditDeleteServiceTests : IAsyncDisposable
     [Fact]
     public async Task UpdateAsync_WithValidData_UpdatesTextAndMood()
     {
-        var command = new UpdatePostCommand("Updated text", "Completed", null, false);
+        var command = new UpdatePostCommand("Updated text", "Completed", [], []);
         var result = await _service.UpdateAsync(_postId, _authorId, command, CancellationToken.None);
 
         result.TextContent.Should().Be("Updated text");
@@ -81,7 +81,7 @@ public sealed class PostEditDeleteServiceTests : IAsyncDisposable
     [Fact]
     public async Task UpdateAsync_WithNullMood_ClearsMood()
     {
-        var command = new UpdatePostCommand("Some text", null, null, false);
+        var command = new UpdatePostCommand("Some text", null, [], []);
         var result = await _service.UpdateAsync(_postId, _authorId, command, CancellationToken.None);
 
         result.Mood.Should().BeNull();
@@ -90,7 +90,7 @@ public sealed class PostEditDeleteServiceTests : IAsyncDisposable
     [Fact]
     public async Task UpdateAsync_WithEmptyText_Throws()
     {
-        var command = new UpdatePostCommand("   ", null, null, false);
+        var command = new UpdatePostCommand("   ", null, [], []);
         var act = () => _service.UpdateAsync(_postId, _authorId, command, CancellationToken.None);
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Post text is required.");
@@ -99,7 +99,7 @@ public sealed class PostEditDeleteServiceTests : IAsyncDisposable
     [Fact]
     public async Task UpdateAsync_WithTooLongText_Throws()
     {
-        var command = new UpdatePostCommand(new string('x', 1001), null, null, false);
+        var command = new UpdatePostCommand(new string('x', 1001), null, [], []);
         var act = () => _service.UpdateAsync(_postId, _authorId, command, CancellationToken.None);
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Post text cannot be longer than 1000 characters.");
@@ -108,7 +108,7 @@ public sealed class PostEditDeleteServiceTests : IAsyncDisposable
     [Fact]
     public async Task UpdateAsync_WithInvalidMood_Throws()
     {
-        var command = new UpdatePostCommand("Hello", "Raging", null, false);
+        var command = new UpdatePostCommand("Hello", "Raging", [], []);
         var act = () => _service.UpdateAsync(_postId, _authorId, command, CancellationToken.None);
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Invalid mood value.");
@@ -117,7 +117,7 @@ public sealed class PostEditDeleteServiceTests : IAsyncDisposable
     [Fact]
     public async Task UpdateAsync_WhenPostNotFound_Throws()
     {
-        var command = new UpdatePostCommand("Hello", null, null, false);
+        var command = new UpdatePostCommand("Hello", null, [], []);
         var act = () => _service.UpdateAsync(Guid.NewGuid(), _authorId, command, CancellationToken.None);
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Post was not found.");
@@ -126,7 +126,7 @@ public sealed class PostEditDeleteServiceTests : IAsyncDisposable
     [Fact]
     public async Task UpdateAsync_WhenRequesterIsNotAuthor_Throws()
     {
-        var command = new UpdatePostCommand("Hello", null, null, false);
+        var command = new UpdatePostCommand("Hello", null, [], []);
         var act = () => _service.UpdateAsync(_postId, _otherId, command, CancellationToken.None);
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("You are not allowed to edit this post.");

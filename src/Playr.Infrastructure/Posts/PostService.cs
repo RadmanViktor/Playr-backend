@@ -32,14 +32,19 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
         if (!gameExists)
             throw new InvalidOperationException("Game was not found.");
 
-        string? mediaUrl = null;
-        PostMediaType? mediaType = null;
-        if (command.Media is not null)
+        var validatedMedia = PostMediaValidator.ValidateMany(command.Media);
+        var mediaEntities = new List<PostMedia>();
+        var sortOrder = 0;
+        foreach (var (input, mediaType, extension) in validatedMedia)
         {
-            var (type, extension) = PostMediaValidator.Validate(command.Media);
-            var saved = await fileStorageService.SaveAsync(command.Media.Content, extension, MediaSubFolder, cancellationToken);
-            mediaUrl = saved.RelativeUrl;
-            mediaType = type;
+            var saved = await fileStorageService.SaveAsync(input.Content, extension, MediaSubFolder, cancellationToken);
+            mediaEntities.Add(new PostMedia
+            {
+                Id = Guid.NewGuid(),
+                Url = saved.RelativeUrl,
+                MediaType = mediaType,
+                SortOrder = sortOrder++,
+            });
         }
 
         var post = new Post
@@ -49,8 +54,7 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
             GameId = command.GameId,
             TextContent = text,
             Mood = mood,
-            MediaUrl = mediaUrl,
-            MediaType = mediaType,
+            Media = mediaEntities,
             CreatedAt = DateTimeOffset.UtcNow,
         };
         dbContext.Posts.Add(post);
@@ -64,6 +68,7 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
     {
         var feed = await dbContext.Posts
             .AsNoTracking()
+            .Include(p => p.Media)
             .OrderByDescending(p => p.CreatedAt)
             .Take(FeedSize)
             .ToListAsync(cancellationToken);
@@ -87,26 +92,48 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
             mood = parsed;
         }
 
-        var post = await dbContext.Posts.FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
+        var post = await dbContext.Posts.Include(p => p.Media).FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
             ?? throw new InvalidOperationException("Post was not found.");
 
         if (post.AuthorId != requesterId)
             throw new InvalidOperationException("You are not allowed to edit this post.");
 
-        if (command.Media is not null)
+        if (command.RemoveMediaIds.Count > 0)
         {
-            var (type, extension) = PostMediaValidator.Validate(command.Media);
-            var saved = await fileStorageService.SaveAsync(command.Media.Content, extension, MediaSubFolder, cancellationToken);
-            if (post.MediaUrl is not null)
-                fileStorageService.Delete(post.MediaUrl);
-            post.MediaUrl = saved.RelativeUrl;
-            post.MediaType = type;
+            var toRemove = post.Media.Where(m => command.RemoveMediaIds.Contains(m.Id)).ToList();
+            foreach (var media in toRemove)
+            {
+                fileStorageService.Delete(media.Url);
+                post.Media.Remove(media);
+                dbContext.PostMedia.Remove(media);
+            }
         }
-        else if (command.RemoveMedia && post.MediaUrl is not null)
+
+        if (command.NewMedia.Count > 0)
         {
-            fileStorageService.Delete(post.MediaUrl);
-            post.MediaUrl = null;
-            post.MediaType = null;
+            var remainingSlots = PostMediaValidator.MaxImageCount - post.Media.Count;
+            if (post.Media.Any(m => m.MediaType == PostMediaType.Video) || command.NewMedia.Count > remainingSlots)
+                throw new InvalidOperationException("A post can only contain a single video, or up to 5 images, not both.");
+
+            var validatedMedia = PostMediaValidator.ValidateMany(command.NewMedia);
+            var hasExistingVideo = post.Media.Count > 0 && validatedMedia.Any(v => v.MediaType == PostMediaType.Video);
+            if (hasExistingVideo)
+                throw new InvalidOperationException("A post can only contain a single video, or up to 5 images, not both.");
+
+            var sortOrder = post.Media.Count == 0 ? 0 : post.Media.Max(m => m.SortOrder) + 1;
+            foreach (var (input, mediaType, extension) in validatedMedia)
+            {
+                var saved = await fileStorageService.SaveAsync(input.Content, extension, MediaSubFolder, cancellationToken);
+                var media = new PostMedia
+                {
+                    Id = Guid.NewGuid(),
+                    PostId = post.Id,
+                    Url = saved.RelativeUrl,
+                    MediaType = mediaType,
+                    SortOrder = sortOrder++,
+                };
+                post.Media.Add(media);
+            }
         }
 
         post.TextContent = text;
@@ -119,14 +146,14 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
 
     public async Task DeleteAsync(Guid postId, Guid requesterId, CancellationToken cancellationToken)
     {
-        var post = await dbContext.Posts.FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
+        var post = await dbContext.Posts.Include(p => p.Media).FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
             ?? throw new InvalidOperationException("Post was not found.");
 
         if (post.AuthorId != requesterId)
             throw new InvalidOperationException("You are not allowed to delete this post.");
 
-        if (post.MediaUrl is not null)
-            fileStorageService.Delete(post.MediaUrl);
+        foreach (var media in post.Media)
+            fileStorageService.Delete(media.Url);
 
         dbContext.Posts.Remove(post);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -144,6 +171,7 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
 
         var posts = await dbContext.Posts
             .AsNoTracking()
+            .Include(p => p.Media)
             .Where(p => p.AuthorId == profile.UserId)
             .OrderByDescending(p => p.CreatedAt)
             .Take(FeedSize)
@@ -238,8 +266,10 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
                 game.CoverImageUrl,
                 post.TextContent,
                 post.Mood?.ToString(),
-                post.MediaUrl,
-                post.MediaType?.ToString(),
+                post.Media
+                    .OrderBy(m => m.SortOrder)
+                    .Select(m => new PostMediaDto(m.Id, m.Url, m.MediaType.ToString(), m.SortOrder))
+                    .ToList(),
                 post.CreatedAt,
                 likeCountMap.GetValueOrDefault(post.Id, 0),
                 likedByCurrentUser.Contains(post.Id),

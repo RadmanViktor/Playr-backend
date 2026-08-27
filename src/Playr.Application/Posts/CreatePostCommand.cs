@@ -4,4 +4,4 @@ public sealed record CreatePostCommand(
     Guid GameId,
     string TextContent,
     string? Mood,
-    PostMediaInput? Media);
+    IReadOnlyList<PostMediaInput> Media);

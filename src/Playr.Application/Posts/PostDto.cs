@@ -1,5 +1,11 @@
 namespace Playr.Application.Posts;
 
+public sealed record PostMediaDto(
+    Guid Id,
+    string Url,
+    string MediaType,
+    int SortOrder);
+
 public sealed record PostDto(
     Guid Id,
     Guid AuthorId,
@@ -11,8 +17,7 @@ public sealed record PostDto(
     string? GameCoverImageUrl,
     string TextContent,
     string? Mood,
-    string? MediaUrl,
-    string? MediaType,
+    IReadOnlyList<PostMediaDto> Media,
     DateTimeOffset CreatedAt,
     int LikesCount,
     bool LikedByCurrentUser,

@@ -21,6 +21,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<Game> Games => Set<Game>();
     public DbSet<Post> Posts => Set<Post>();
+    public DbSet<PostMedia> PostMedia => Set<PostMedia>();
     public DbSet<PostLike> PostLikes => Set<PostLike>();
     public DbSet<PostComment> PostComments => Set<PostComment>();
     public DbSet<CommentReaction> CommentReactions => Set<CommentReaction>();
@@ -105,10 +106,6 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             post.Property(p => p.Mood)
                 .HasConversion<string>()
                 .HasMaxLength(16);
-            post.Property(p => p.MediaUrl).HasMaxLength(500);
-            post.Property(p => p.MediaType)
-                .HasConversion<string>()
-                .HasMaxLength(16);
             post.HasOne(p => p.Author)
                 .WithMany()
                 .HasForeignKey(p => p.AuthorId)
@@ -126,6 +123,21 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                         v => DateTimeOffset.FromUnixTimeMilliseconds(v));
             }
         });
+
+        builder.Entity<PostMedia>(media =>
+        {
+            media.HasKey(m => m.Id);
+            media.Property(m => m.Url).HasMaxLength(500).IsRequired();
+            media.Property(m => m.MediaType)
+                .HasConversion<string>()
+                .HasMaxLength(16);
+            media.HasOne(m => m.Post)
+                .WithMany(p => p.Media)
+                .HasForeignKey(m => m.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+            media.HasIndex(m => new { m.PostId, m.SortOrder });
+        });
+
 
         builder.Entity<PostLike>(like =>
         {

@@ -23,6 +23,8 @@ public static class PostMediaValidator
         [".mov"] = PostMediaType.Video,
     };
 
+    public const int MaxImageCount = 5;
+
     public static (PostMediaType MediaType, string Extension) Validate(PostMediaInput media)
     {
         var extension = Path.GetExtension(media.FileName);
@@ -44,5 +46,25 @@ public static class PostMediaValidator
         }
 
         throw new InvalidOperationException("Unsupported file type. Allowed: jpg, jpeg, png, webp, gif, mp4, webm, mov.");
+    }
+
+    public static IReadOnlyList<(PostMediaInput Input, PostMediaType MediaType, string Extension)> ValidateMany(
+        IReadOnlyList<PostMediaInput>? mediaItems)
+    {
+        if (mediaItems is null || mediaItems.Count == 0)
+            return [];
+
+        if (mediaItems.Count > MaxImageCount)
+            throw new InvalidOperationException($"A post can have at most {MaxImageCount} media files.");
+
+        var validated = mediaItems.Select(m => (Input: m, Result: Validate(m)))
+            .Select(x => (x.Input, x.Result.MediaType, x.Result.Extension))
+            .ToList();
+
+        var hasVideo = validated.Any(v => v.MediaType == PostMediaType.Video);
+        if (hasVideo && validated.Count > 1)
+            throw new InvalidOperationException("A post can only contain a single video, or up to 5 images, not both.");
+
+        return validated;
     }
 }

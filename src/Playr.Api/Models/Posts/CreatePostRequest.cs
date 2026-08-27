@@ -13,5 +13,5 @@ public sealed class CreatePostRequest
 
     public string? Mood { get; set; }
 
-    public IFormFile? Media { get; set; }
+    public List<IFormFile> Media { get; set; } = [];
 }
