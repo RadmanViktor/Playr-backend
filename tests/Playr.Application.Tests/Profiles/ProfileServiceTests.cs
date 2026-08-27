@@ -307,7 +307,7 @@ public sealed class ProfileServiceTests
                 DisplayName = "Player"
             });
             await dbContext.SaveChangesAsync();
-            return new ProfileFixture(connection, dbContext, new ProfileService(dbContext), userId);
+            return new ProfileFixture(connection, dbContext, new ProfileService(dbContext, new Playr.Application.Tests.Posts.NoOpFileStorageService()), userId);
         }
 
         public UpdateProfileCommand ValidCommand() => new(

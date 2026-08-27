@@ -5,6 +5,7 @@ using Playr.Api.Models.Posts;
 using Playr.Api.Models.Profiles;
 using Playr.Application.Posts;
 using Playr.Application.Profiles;
+using Playr.Application.Common;
 
 namespace Playr.Api.Controllers;
 
@@ -67,6 +68,28 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
                 new UpdateStatusCommand(request.Status, request.LookingForGameId, request.LookingForPlayStyle),
                 cancellationToken);
 
+            return Ok(ToResponse(profile));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize]
+    [HttpPost("me/avatar")]
+    public async Task<ActionResult<ProfileResponse>> UploadAvatar([FromForm] UploadAvatarRequest request, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        try
+        {
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";
+            var input = new FileUploadInput(request.Avatar.OpenReadStream(), request.Avatar.FileName, request.Avatar.ContentType, request.Avatar.Length);
+            var profile = await profileService.UpdateAvatarAsync(userId, baseUrl, input, cancellationToken);
             return Ok(ToResponse(profile));
         }
         catch (InvalidOperationException ex)

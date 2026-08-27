@@ -134,6 +134,9 @@ public class ProfileEndpointConfigurationTests
         public Task<ProfileDto> UpdateStatusAsync(Guid userId, UpdateStatusCommand command, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
 
+        public Task<ProfileDto> UpdateAvatarAsync(Guid userId, string baseUrl, Playr.Application.Common.FileUploadInput avatar, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
+
         public Task<IReadOnlyList<ProfileSearchResult>> SearchAsync(string query, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
 

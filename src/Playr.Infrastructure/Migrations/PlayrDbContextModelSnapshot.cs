@@ -182,7 +182,7 @@ namespace Playr.Infrastructure.Migrations
 
                     b.HasIndex("ConversationId", "CreatedAt");
 
-                    b.ToTable("ChatMessages");
+                    b.ToTable("ChatMessages", (string)null);
                 });
 
             modelBuilder.Entity("Playr.Domain.Chat.Conversation", b =>
@@ -212,7 +212,7 @@ namespace Playr.Infrastructure.Migrations
                     b.HasIndex("DirectUserAId", "DirectUserBId")
                         .IsUnique();
 
-                    b.ToTable("Conversations");
+                    b.ToTable("Conversations", (string)null);
                 });
 
             modelBuilder.Entity("Playr.Domain.Chat.ConversationParticipant", b =>
@@ -230,7 +230,7 @@ namespace Playr.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("ConversationParticipants");
+                    b.ToTable("ConversationParticipants", (string)null);
                 });
 
             modelBuilder.Entity("Playr.Domain.Friendships.Friendship", b =>
@@ -255,7 +255,7 @@ namespace Playr.Infrastructure.Migrations
                     b.HasIndex("UserAId", "UserBId")
                         .IsUnique();
 
-                    b.ToTable("Friendships");
+                    b.ToTable("Friendships", (string)null);
                 });
 
             modelBuilder.Entity("Playr.Domain.Games.Game", b =>
@@ -279,7 +279,7 @@ namespace Playr.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Games");
+                    b.ToTable("Games", (string)null);
 
                     b.HasData(
                         new
@@ -428,7 +428,7 @@ namespace Playr.Infrastructure.Migrations
 
                     b.HasIndex("SenderUserId", "RecipientUserId", "Status");
 
-                    b.ToTable("Invitations");
+                    b.ToTable("Invitations", (string)null);
                 });
 
             modelBuilder.Entity("Playr.Domain.Posts.Post", b =>
@@ -471,7 +471,7 @@ namespace Playr.Infrastructure.Migrations
 
                     b.HasIndex("GameId");
 
-                    b.ToTable("Posts");
+                    b.ToTable("Posts", (string)null);
                 });
 
             modelBuilder.Entity("Playr.Domain.Posts.PostComment", b =>
@@ -503,7 +503,7 @@ namespace Playr.Infrastructure.Migrations
 
                     b.HasIndex("PostId", "CreatedAt");
 
-                    b.ToTable("PostComments");
+                    b.ToTable("PostComments", (string)null);
                 });
 
             modelBuilder.Entity("Playr.Domain.Posts.PostLike", b =>
@@ -519,7 +519,7 @@ namespace Playr.Infrastructure.Migrations
 
                     b.HasKey("PostId", "UserId");
 
-                    b.ToTable("PostLikes");
+                    b.ToTable("PostLikes", (string)null);
                 });
 
             modelBuilder.Entity("Playr.Domain.Profiles.UserProfile", b =>
@@ -592,7 +592,7 @@ namespace Playr.Infrastructure.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("UserProfiles");
+                    b.ToTable("UserProfiles", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

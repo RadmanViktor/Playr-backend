@@ -120,6 +120,7 @@ public class ContractTests
             "GetByUserIdAsync",
             "UpdateCurrentUserAsync",
             "UpdateStatusAsync",
+            "UpdateAvatarAsync",
             "SearchAsync",
             "GetLookingForGamePlayersAsync");
     }

@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Playr.Application.Common;
 using Playr.Application.Invitations;
 using Playr.Application.Profiles;
+using Playr.Application.Storage;
 using Playr.Domain.Games;
 using Playr.Domain.Invitations;
 using Playr.Domain.Profiles;
@@ -8,7 +10,7 @@ using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Profiles;
 
-public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
+public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService fileStorageService) : IProfileService
 {
     private const int MaxListItems = 20;
     private const int MaxListItemLength = 64;
@@ -120,6 +122,29 @@ public sealed class ProfileService(PlayrDbContext dbContext) : IProfileService
             .Include(p => p.LookingForGame)
             .FirstAsync(p => p.UserId == userId, cancellationToken);
         return ToDto(reloaded);
+    }
+
+    public async Task<ProfileDto> UpdateAvatarAsync(Guid userId, string baseUrl, FileUploadInput avatar, CancellationToken cancellationToken)
+    {
+        var extension = ImageUploadValidator.Validate(avatar);
+
+        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken)
+            ?? throw new InvalidOperationException("Profile was not found.");
+
+        var saved = await fileStorageService.SaveAsync(avatar.Content, extension, "avatars", cancellationToken);
+        var newAvatarUrl = $"{baseUrl}{saved.RelativeUrl}";
+
+        if (!string.IsNullOrEmpty(profile.AvatarUrl) && profile.AvatarUrl.StartsWith(baseUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            var oldRelativeUrl = profile.AvatarUrl[baseUrl.Length..];
+            fileStorageService.Delete(oldRelativeUrl);
+        }
+
+        profile.AvatarUrl = newAvatarUrl;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ToDto(profile);
     }
 
     private static ProfileDto ToDto(UserProfile profile) => new(
