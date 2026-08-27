@@ -1,3 +1,4 @@
+using Playr.Application.Invitations;
 using Playr.Domain.Profiles;
 
 namespace Playr.Application.Profiles;
@@ -18,4 +19,5 @@ public sealed record ProfileDto(
     string? LookingForGameName,
     PlayStyle? LookingForPlayStyle,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    RelationshipStatus? RelationshipStatus = null);

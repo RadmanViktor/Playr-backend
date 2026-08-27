@@ -18,4 +18,5 @@ public sealed record ProfileResponse(
     string? LookingForGameName,
     PlayStyle? LookingForPlayStyle,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? RelationshipStatus = null);

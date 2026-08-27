@@ -21,13 +21,46 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
     private const int MaxBioLength = 500;
     private const int MaxRegionLength = 64;
 
-    public async Task<ProfileDto?> GetByUsernameAsync(string username, CancellationToken cancellationToken)
+    public async Task<ProfileDto?> GetByUsernameAsync(string username, Guid? currentUserId, CancellationToken cancellationToken)
     {
         var normalized = username.ToUpperInvariant();
         var profile = await dbContext.UserProfiles.AsNoTracking()
             .Include(p => p.LookingForGame)
             .FirstOrDefaultAsync(p => p.Username.ToUpper() == normalized, cancellationToken);
-        return profile is null ? null : ToDto(profile);
+        if (profile is null)
+        {
+            return null;
+        }
+
+        RelationshipStatus? relationshipStatus = null;
+        if (currentUserId is Guid uid && uid != profile.UserId)
+        {
+            relationshipStatus = await GetRelationshipStatusAsync(uid, profile.UserId, cancellationToken);
+        }
+
+        return ToDto(profile, relationshipStatus);
+    }
+
+    private async Task<RelationshipStatus> GetRelationshipStatusAsync(
+        Guid currentUserId, Guid otherUserId, CancellationToken cancellationToken)
+    {
+        var isFriend = await dbContext.Friendships.AsNoTracking()
+            .AnyAsync(f =>
+                (f.UserAId == currentUserId && f.UserBId == otherUserId) ||
+                (f.UserAId == otherUserId && f.UserBId == currentUserId),
+                cancellationToken);
+        if (isFriend)
+        {
+            return RelationshipStatus.Friends;
+        }
+
+        var hasPendingInvitation = await dbContext.Invitations.AsNoTracking()
+            .AnyAsync(i => i.Status == InvitationStatus.Pending &&
+                ((i.SenderUserId == currentUserId && i.RecipientUserId == otherUserId) ||
+                 (i.SenderUserId == otherUserId && i.RecipientUserId == currentUserId)),
+                cancellationToken);
+
+        return hasPendingInvitation ? RelationshipStatus.InvitePending : RelationshipStatus.None;
     }
 
     public async Task<ProfileDto?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
@@ -144,7 +177,7 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         return ToDto(profile);
     }
 
-    private static ProfileDto ToDto(UserProfile profile) => new(
+    private static ProfileDto ToDto(UserProfile profile, RelationshipStatus? relationshipStatus = null) => new(
         profile.UserId,
         profile.Username,
         profile.DisplayName,
@@ -160,7 +193,8 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         profile.LookingForGame?.Name,
         profile.LookingForPlayStyle,
         profile.CreatedAt,
-        profile.UpdatedAt);
+        profile.UpdatedAt,
+        relationshipStatus);
 
     private static List<string> NormalizeList(IReadOnlyList<string>? values, string name)
     {

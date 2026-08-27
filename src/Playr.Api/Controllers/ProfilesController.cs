@@ -16,7 +16,8 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
     [HttpGet("{username}")]
     public async Task<ActionResult<ProfileResponse>> GetByUsername(string username, CancellationToken cancellationToken)
     {
-        var profile = await profileService.GetByUsernameAsync(username, cancellationToken);
+        Guid? currentUserId = User.TryGetUserId(out var uid) ? uid : null;
+        var profile = await profileService.GetByUsernameAsync(username, currentUserId, cancellationToken);
         return profile is null ? NotFound(new { error = "Profile was not found." }) : Ok(ToResponse(profile));
     }
 
@@ -127,7 +128,8 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
         profile.LookingForGameName,
         profile.LookingForPlayStyle,
         profile.CreatedAt,
-        profile.UpdatedAt);
+        profile.UpdatedAt,
+        profile.RelationshipStatus?.ToString());
 
     [HttpGet("search")]
     public async Task<ActionResult<IReadOnlyList<ProfileSearchResponse>>> Search(
