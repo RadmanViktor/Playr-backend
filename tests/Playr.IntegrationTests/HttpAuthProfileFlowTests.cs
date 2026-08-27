@@ -65,7 +65,6 @@ public sealed class HttpAuthProfileFlowTests : IClassFixture<PlayrWebApplication
         var updateResponse = await client.PutAsJsonAsync("/api/profiles/me", new UpdateProfileRequest(
             "Player One",
             "Ready to play",
-            "https://example.com/avatar.png",
             "EU",
             ["English"],
             ["PC"],
@@ -76,7 +75,6 @@ public sealed class HttpAuthProfileFlowTests : IClassFixture<PlayrWebApplication
         updated.Should().NotBeNull();
         updated!.DisplayName.Should().Be("Player One");
         updated.Bio.Should().Be("Ready to play");
-        updated.AvatarUrl.Should().Be("https://example.com/avatar.png");
         updated.Status.Should().Be(ProfileStatus.Online);
     }
 }

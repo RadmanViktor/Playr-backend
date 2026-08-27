@@ -101,7 +101,6 @@ public class ContractTests
         var command = new UpdateProfileCommand(
             "Player",
             "bio",
-            "avatar",
             "region",
             languages,
             platforms,

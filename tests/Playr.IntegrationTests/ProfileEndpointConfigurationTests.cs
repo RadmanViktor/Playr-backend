@@ -64,7 +64,6 @@ public class ProfileEndpointConfigurationTests
         displayNameLength.MaximumLength.Should().Be(64);
         displayNameLength.MinimumLength.Should().Be(1);
         GetRecordParameterAttribute<StringLengthAttribute>(updateProfileRequest!, "Bio").MaximumLength.Should().Be(500);
-        GetRecordParameterAttribute<StringLengthAttribute>(updateProfileRequest!, "AvatarUrl").MaximumLength.Should().Be(500);
         GetRecordParameterAttribute<StringLengthAttribute>(updateProfileRequest!, "Region").MaximumLength.Should().Be(64);
 
         var controller = apiAssembly.GetType("Playr.Api.Controllers.ProfilesController");
@@ -94,7 +93,7 @@ public class ProfileEndpointConfigurationTests
         };
 
         var result = await controller.UpdateMe(
-            new UpdateProfileRequest("Player", null, null, null, null, null, null, null),
+            new UpdateProfileRequest("Player", null, null, null, null, null, null),
             CancellationToken.None);
 
         var unauthorized = result.Result.Should().BeOfType<UnauthorizedObjectResult>().Subject;

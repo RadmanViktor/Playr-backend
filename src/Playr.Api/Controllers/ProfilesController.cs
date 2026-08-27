@@ -36,7 +36,6 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
                 new UpdateProfileCommand(
                     request.DisplayName,
                     request.Bio,
-                    request.AvatarUrl,
                     request.Region,
                     request.Languages ?? [],
                     request.Platforms ?? [],

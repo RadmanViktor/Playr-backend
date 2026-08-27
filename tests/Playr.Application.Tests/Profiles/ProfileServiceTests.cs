@@ -58,36 +58,6 @@ public sealed class ProfileServiceTests
             .WithMessage(expectedMessage);
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("javascript:alert(1)")]
-    [InlineData("/avatars/player.png")]
-    [InlineData("not a url")]
-    [InlineData("ftp://example.com/avatar.png")]
-    public async Task UpdateCurrentUserAsync_WhenAvatarUrlIsNotAbsoluteHttpUrl_ThrowsInvalidOperationException(string avatarUrl)
-    {
-        await using var fixture = await ProfileFixture.CreateAsync();
-        var command = fixture.ValidCommand() with { AvatarUrl = avatarUrl };
-
-        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
-
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("Avatar URL must be an absolute HTTP or HTTPS URL.");
-    }
-
-    [Fact]
-    public async Task UpdateCurrentUserAsync_WhenAvatarUrlIsTooLongAfterTrim_ThrowsInvalidOperationException()
-    {
-        await using var fixture = await ProfileFixture.CreateAsync();
-        var command = fixture.ValidCommand() with { AvatarUrl = $" https://example.com/{new string('a', 481)} " };
-
-        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
-
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("Avatar URL cannot be longer than 500 characters.");
-    }
-
     [Fact]
     public async Task UpdateCurrentUserAsync_WhenListContainsNull_ThrowsInvalidOperationException()
     {
@@ -312,7 +282,6 @@ public sealed class ProfileServiceTests
 
         public UpdateProfileCommand ValidCommand() => new(
             "Player",
-            null,
             null,
             null,
             ["English"],
