@@ -15,7 +15,7 @@ namespace Playr.Application.Tests.Auth;
 public sealed class AuthServiceTests
 {
     [Fact]
-    public async Task RegisterAsync_WhenIdentityRejectsPassword_ReturnsStablePublicError()
+    public async Task RegisterAsync_WhenIdentityRejectsPassword_SurfacesIdentityErrorMessage()
     {
         await using var fixture = await AuthFixture.CreateAsync();
 
@@ -24,7 +24,7 @@ public sealed class AuthServiceTests
             CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("Registration failed.");
+            .WithMessage("*Passwords must be at least 8 characters*");
     }
 
     [Fact]

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -19,6 +21,12 @@ namespace Playr.IntegrationTests;
 
 public sealed class HttpAuthProfileFlowTests : IClassFixture<PlayrWebApplicationFactory>
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() },
+    };
+
     private readonly PlayrWebApplicationFactory _factory;
 
     public HttpAuthProfileFlowTests(PlayrWebApplicationFactory factory)
@@ -57,7 +65,7 @@ public sealed class HttpAuthProfileFlowTests : IClassFixture<PlayrWebApplication
 
         var publicProfileResponse = await client.GetAsync("/api/profiles/player");
         publicProfileResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var publicProfile = await publicProfileResponse.Content.ReadFromJsonAsync<ProfileResponse>();
+        var publicProfile = await publicProfileResponse.Content.ReadFromJsonAsync<ProfileResponse>(JsonOptions);
         publicProfile.Should().NotBeNull();
         publicProfile!.UserId.Should().Be(registered.Id);
         publicProfile.Username.Should().Be("player");
@@ -71,7 +79,7 @@ public sealed class HttpAuthProfileFlowTests : IClassFixture<PlayrWebApplication
             new Dictionary<string, string> { ["Steam"] = "https://example.com/player" },
             ["Chess"]));
         updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var updated = await updateResponse.Content.ReadFromJsonAsync<ProfileResponse>();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<ProfileResponse>(JsonOptions);
         updated.Should().NotBeNull();
         updated!.DisplayName.Should().Be("Player One");
         updated.Bio.Should().Be("Ready to play");
