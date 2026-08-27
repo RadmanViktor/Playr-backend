@@ -84,7 +84,7 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
         return Ok(posts.Select(p => new PostResponse(
             p.Id, p.AuthorId, p.AuthorUsername, p.AuthorDisplayName, p.AuthorAvatarUrl,
             p.GameId, p.GameName, p.GameCoverImageUrl, p.TextContent, p.Mood, p.MediaUrl, p.MediaType, p.CreatedAt,
-            p.LikesCount, p.LikedByCurrentUser
+            p.LikesCount, p.LikedByCurrentUser, p.CommentsCount
         )).ToList());
     }
 

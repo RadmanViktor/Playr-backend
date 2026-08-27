@@ -111,7 +111,8 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         post.MediaType,
         post.CreatedAt,
         post.LikesCount,
-        post.LikedByCurrentUser);
+        post.LikedByCurrentUser,
+        post.CommentsCount);
 
     [Authorize]
     [HttpPost("{id:guid}/like")]

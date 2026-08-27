@@ -215,6 +215,14 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
             likedByCurrentUser = liked.ToHashSet();
         }
 
+        var commentCounts = await dbContext.PostComments
+            .AsNoTracking()
+            .Where(c => postIds.Contains(c.PostId))
+            .GroupBy(c => c.PostId)
+            .Select(g => new { PostId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+        var commentCountMap = commentCounts.ToDictionary(x => x.PostId, x => x.Count);
+
         return posts.Select(post =>
         {
             var profile = profileMap[post.AuthorId];
@@ -234,7 +242,8 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
                 post.MediaType?.ToString(),
                 post.CreatedAt,
                 likeCountMap.GetValueOrDefault(post.Id, 0),
-                likedByCurrentUser.Contains(post.Id));
+                likedByCurrentUser.Contains(post.Id),
+                commentCountMap.GetValueOrDefault(post.Id, 0));
         }).ToList();
     }
 }

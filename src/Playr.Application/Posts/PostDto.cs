@@ -15,4 +15,5 @@ public sealed record PostDto(
     string? MediaType,
     DateTimeOffset CreatedAt,
     int LikesCount,
-    bool LikedByCurrentUser);
+    bool LikedByCurrentUser,
+    int CommentsCount);
