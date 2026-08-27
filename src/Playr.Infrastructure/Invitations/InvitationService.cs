@@ -1,12 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Playr.Application.Chat;
 using Playr.Application.Invitations;
-using Playr.Domain.Friendships;
 using Playr.Domain.Invitations;
 using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Invitations;
 
-public sealed class InvitationService(PlayrDbContext dbContext) : IInvitationService
+public sealed class InvitationService(PlayrDbContext dbContext, IChatService chatService) : IInvitationService
 {
     private const int MaxMessageLength = 500;
 
@@ -101,20 +101,16 @@ public sealed class InvitationService(PlayrDbContext dbContext) : IInvitationSer
 
         invitation.Status = InvitationStatus.Accepted;
         invitation.RespondedAt = DateTimeOffset.UtcNow;
-
-        if (!await AreFriendsAsync(invitation.SenderUserId, invitation.RecipientUserId, cancellationToken))
-        {
-            var (userAId, userBId) = OrderPair(invitation.SenderUserId, invitation.RecipientUserId);
-            dbContext.Friendships.Add(new Friendship
-            {
-                Id = Guid.NewGuid(),
-                UserAId = userAId,
-                UserBId = userBId,
-                CreatedAt = DateTimeOffset.UtcNow
-            });
-        }
-
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        var conversation = await chatService.GetOrCreateDirectConversationAsync(
+            invitation.SenderUserId, invitation.RecipientUserId, cancellationToken);
+        await chatService.SendMessageAsync(
+            invitation.SenderUserId,
+            conversation.Id,
+            new SendChatMessageCommand(invitation.Message),
+            cancellationToken);
+
         return await LoadDtoAsync(invitation.Id, cancellationToken);
     }
 
@@ -163,16 +159,6 @@ public sealed class InvitationService(PlayrDbContext dbContext) : IInvitationSer
         await dbContext.SaveChangesAsync(cancellationToken);
         return await LoadDtoAsync(invitation.Id, cancellationToken);
     }
-
-    private async Task<bool> AreFriendsAsync(Guid userId1, Guid userId2, CancellationToken cancellationToken)
-    {
-        var (userAId, userBId) = OrderPair(userId1, userId2);
-        return await dbContext.Friendships.AsNoTracking()
-            .AnyAsync(f => f.UserAId == userAId && f.UserBId == userBId, cancellationToken);
-    }
-
-    private static (Guid UserAId, Guid UserBId) OrderPair(Guid userId1, Guid userId2) =>
-        userId1.CompareTo(userId2) < 0 ? (userId1, userId2) : (userId2, userId1);
 
     private async Task<InvitationDto> LoadDtoAsync(Guid invitationId, CancellationToken cancellationToken)
     {

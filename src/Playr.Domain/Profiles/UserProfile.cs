@@ -22,4 +22,6 @@ public sealed class UserProfile
     public PlayStyle? LookingForPlayStyle { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public bool ChatSoundEnabled { get; set; } = true;
+    public bool ChatBrowserNotificationsEnabled { get; set; } = true;
 }

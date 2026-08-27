@@ -5,7 +5,7 @@ using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Chat;
 
-public sealed class ChatService(PlayrDbContext dbContext) : IChatService
+public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNotifier) : IChatService
 {
     private const int MaxMessageLength = 1000;
 
@@ -24,11 +24,6 @@ public sealed class ChatService(PlayrDbContext dbContext) : IChatService
         if (userId == otherUserId)
         {
             throw new InvalidOperationException("You cannot start a conversation with yourself.");
-        }
-
-        if (!await AreFriendsAsync(userId, otherUserId, cancellationToken))
-        {
-            throw new InvalidOperationException("You can only chat with friends.");
         }
 
         var (userAId, userBId) = OrderPair(userId, otherUserId);
@@ -111,7 +106,14 @@ public sealed class ChatService(PlayrDbContext dbContext) : IChatService
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var dtos = await MapMessagesAsync([message], cancellationToken);
-        return dtos[0];
+        var dto = dtos[0];
+
+        await chatNotifier.NotifyNewMessageAsync(
+            [conversation.DirectUserAId, conversation.DirectUserBId],
+            dto,
+            cancellationToken);
+
+        return dto;
     }
 
     private async Task EnsureParticipantAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken)
@@ -122,13 +124,6 @@ public sealed class ChatService(PlayrDbContext dbContext) : IChatService
         {
             throw new InvalidOperationException("You are not part of this conversation.");
         }
-    }
-
-    private async Task<bool> AreFriendsAsync(Guid userId1, Guid userId2, CancellationToken cancellationToken)
-    {
-        var (userAId, userBId) = OrderPair(userId1, userId2);
-        return await dbContext.Friendships.AsNoTracking()
-            .AnyAsync(f => f.UserAId == userAId && f.UserBId == userBId, cancellationToken);
     }
 
     private async Task<IReadOnlyList<ConversationDto>> MapConversationsAsync(

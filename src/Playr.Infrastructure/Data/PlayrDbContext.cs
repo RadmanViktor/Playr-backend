@@ -27,6 +27,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<CommentReaction> CommentReactions => Set<CommentReaction>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
+    public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
@@ -61,6 +62,8 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             profile.Property(p => p.LookingForPlayStyle)
                 .HasConversion<string>()
                 .HasMaxLength(32);
+            profile.Property(p => p.ChatSoundEnabled).HasDefaultValue(true).IsRequired();
+            profile.Property(p => p.ChatBrowserNotificationsEnabled).HasDefaultValue(true).IsRequired();
             profile.HasOne(p => p.LookingForGame)
                 .WithMany()
                 .HasForeignKey(p => p.LookingForGameId)
@@ -231,6 +234,36 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                         v => v.ToUnixTimeMilliseconds(),
                         v => DateTimeOffset.FromUnixTimeMilliseconds(v));
                 invitation.Property(i => i.RespondedAt)
+                    .HasConversion(
+                        v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
+                        v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
+            }
+        });
+
+        builder.Entity<FriendRequest>(friendRequest =>
+        {
+            friendRequest.HasKey(r => r.Id);
+            friendRequest.Property(r => r.Status)
+                .HasConversion<string>()
+                .HasMaxLength(16)
+                .HasDefaultValue(FriendRequestStatus.Pending)
+                .IsRequired();
+            friendRequest.HasOne(r => r.Sender)
+                .WithMany()
+                .HasForeignKey(r => r.SenderUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            friendRequest.HasOne(r => r.Recipient)
+                .WithMany()
+                .HasForeignKey(r => r.RecipientUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            friendRequest.HasIndex(r => new { r.SenderUserId, r.RecipientUserId, r.Status });
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                friendRequest.Property(r => r.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                friendRequest.Property(r => r.RespondedAt)
                     .HasConversion(
                         v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
                         v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);

@@ -1,8 +1,12 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.IdentityModel.Tokens;
+using Playr.Api.Chat;
+using Playr.Api.Hubs;
 using Playr.Application.Auth;
+using Playr.Application.Chat;
 using Playr.Infrastructure;
 using Playr.Api.Steam;
 
@@ -17,6 +21,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<SteamLinkStateSigner>();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, ChatUserIdProvider>();
+builder.Services.AddScoped<IChatNotifier, SignalRChatNotifier>();
 
 builder.Services.AddCors(options =>
 {
@@ -47,6 +54,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtOptions.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey))
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/chat"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -65,6 +86,7 @@ app.UseCors("FrontendDev");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<ChatHub>("/hubs/chat");
 app.Run();
 
 public partial class Program;

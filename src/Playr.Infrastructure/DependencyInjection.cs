@@ -47,7 +47,9 @@ public static class DependencyInjection
         services.AddScoped<Playr.Application.Comments.ICommentService, Playr.Infrastructure.Comments.CommentService>();
         services.AddScoped<Playr.Application.Invitations.IInvitationService, Playr.Infrastructure.Invitations.InvitationService>();
         services.AddScoped<Playr.Application.Friends.IFriendService, Playr.Infrastructure.Friends.FriendService>();
+        services.AddScoped<Playr.Application.Friends.IFriendRequestService, Playr.Infrastructure.Friends.FriendRequestService>();
         services.AddScoped<Playr.Application.Chat.IChatService, Playr.Infrastructure.Chat.ChatService>();
+        services.AddScoped<Playr.Application.Notifications.INotificationPreferencesService, Playr.Infrastructure.Notifications.NotificationPreferencesService>();
         services.AddSingleton<Playr.Application.Storage.IFileStorageService, Playr.Infrastructure.Storage.LocalFileStorageService>();
 
         services.Configure<SteamOptions>(configuration.GetSection(SteamOptions.SectionName));

@@ -4,8 +4,8 @@ namespace Playr.Domain.Friendships;
 
 /// <summary>
 /// Represents a mutual friendship between two users, created when one user accepts
-/// the other's invitation. UserAId is always the smaller Guid (by comparison) so that
-/// each pair of users has exactly one row regardless of who sent the original invitation.
+/// the other's friend request. UserAId is always the smaller Guid (by comparison) so that
+/// each pair of users has exactly one row regardless of who sent the original request.
 /// </summary>
 public sealed class Friendship
 {

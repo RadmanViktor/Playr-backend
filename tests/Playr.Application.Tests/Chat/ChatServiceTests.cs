@@ -13,17 +13,17 @@ namespace Playr.Application.Tests.Chat;
 public sealed class ChatServiceTests
 {
     [Fact]
-    public async Task GetOrCreateDirectConversationAsync_WhenUsersAreNotFriends_Throws()
+    public async Task GetOrCreateDirectConversationAsync_WhenUsersAreNotFriends_CreatesConversation()
     {
         await using var fixture = await ChatFixture.CreateAsync();
 
-        var act = () => fixture.Service.GetOrCreateDirectConversationAsync(
+        var conversation = await fixture.Service.GetOrCreateDirectConversationAsync(
             fixture.CurrentUserId,
             fixture.OtherUserId,
             CancellationToken.None);
 
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("You can only chat with friends.");
+        conversation.OtherParticipant.UserId.Should().Be(fixture.OtherUserId);
+        fixture.DbContext.Conversations.Should().HaveCount(1);
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public sealed class ChatServiceTests
                 .Options;
             var dbContext = new PlayrDbContext(options);
             await dbContext.Database.EnsureCreatedAsync();
-            var fixture = new ChatFixture(connection, dbContext, new ChatService(dbContext));
+            var fixture = new ChatFixture(connection, dbContext, new ChatService(dbContext, new NoOpChatNotifier()));
             fixture.AddUser(fixture.CurrentUserId, "player", "Player");
             fixture.AddUser(fixture.OtherUserId, "friend", "Friend");
             await dbContext.SaveChangesAsync();
