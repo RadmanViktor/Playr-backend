@@ -18,6 +18,7 @@ public sealed record ProfileDto(
     Guid? LookingForGameId,
     string? LookingForGameName,
     PlayStyle? LookingForPlayStyle,
+    string? LookingForGameNote,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     RelationshipStatus? RelationshipStatus = null,

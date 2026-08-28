@@ -51,7 +51,7 @@ public class ContractTests
     public void Auth_contracts_expose_required_shapes()
     {
         var command = new RegisterUserCommand("player@example.com", "player", "password");
-        var authUser = new AuthUserDto(Guid.NewGuid(), "player@example.com", "player", "Player");
+        var authUser = new AuthUserDto(Guid.NewGuid(), "player@example.com", "player", "Player", false);
         var result = new AuthResult("token", DateTimeOffset.UtcNow.AddHours(1));
         var options = new JwtOptions();
 
@@ -68,7 +68,9 @@ public class ContractTests
         typeof(IAuthService).GetMethods().Select(method => method.Name).Should().BeEquivalentTo(
             "RegisterAsync",
             "LoginAsync",
-            "GetCurrentUserAsync");
+            "GetCurrentUserAsync",
+            "ConfirmEmailAsync",
+            "ResendConfirmationAsync");
     }
 
     [Fact]
@@ -93,6 +95,7 @@ public class ContractTests
             externalLinks,
             games,
             ProfileStatus.LookingForGame,
+            null,
             null,
             null,
             null,

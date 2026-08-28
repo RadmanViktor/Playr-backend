@@ -10,5 +10,6 @@ public sealed record LookingForGamePlayerResponse(
     Guid? LookingForGameId,
     string? LookingForGameName,
     PlayStyle? LookingForPlayStyle,
+    string? LookingForGameNote,
     string RelationshipStatus,
     Guid? PendingInvitationId = null);
