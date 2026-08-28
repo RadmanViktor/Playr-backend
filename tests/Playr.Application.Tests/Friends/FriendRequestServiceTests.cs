@@ -143,7 +143,7 @@ public sealed class FriendRequestServiceTests
                 .Options;
             var dbContext = new PlayrDbContext(options);
             await dbContext.Database.EnsureCreatedAsync();
-            var fixture = new FriendRequestFixture(connection, dbContext, new FriendRequestService(dbContext));
+            var fixture = new FriendRequestFixture(connection, dbContext, new FriendRequestService(dbContext, new NoOpFriendRequestNotifier()));
             fixture.AddUser(fixture.CurrentUserId, "player", "Player");
             fixture.AddUser(fixture.OtherUserId, "friend", "Friend");
             await dbContext.SaveChangesAsync();

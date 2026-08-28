@@ -5,7 +5,7 @@ using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Friends;
 
-public sealed class FriendRequestService(PlayrDbContext dbContext) : IFriendRequestService
+public sealed class FriendRequestService(PlayrDbContext dbContext, IFriendRequestNotifier friendRequestNotifier) : IFriendRequestService
 {
     public async Task<FriendRequestDto> SendAsync(Guid senderUserId, SendFriendRequestCommand command, CancellationToken cancellationToken)
     {
@@ -48,7 +48,9 @@ public sealed class FriendRequestService(PlayrDbContext dbContext) : IFriendRequ
         dbContext.FriendRequests.Add(friendRequest);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return await LoadDtoAsync(friendRequest.Id, cancellationToken);
+        var dto = await LoadDtoAsync(friendRequest.Id, cancellationToken);
+        await friendRequestNotifier.NotifyFriendRequestCreatedAsync(dto, cancellationToken);
+        return dto;
     }
 
     public async Task<IReadOnlyList<FriendRequestDto>> GetIncomingAsync(Guid userId, CancellationToken cancellationToken)
@@ -105,7 +107,9 @@ public sealed class FriendRequestService(PlayrDbContext dbContext) : IFriendRequ
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return await LoadDtoAsync(request.Id, cancellationToken);
+        var acceptedDto = await LoadDtoAsync(request.Id, cancellationToken);
+        await friendRequestNotifier.NotifyFriendRequestUpdatedAsync(acceptedDto, cancellationToken);
+        return acceptedDto;
     }
 
     public async Task<FriendRequestDto> DeclineAsync(Guid userId, Guid friendRequestId, CancellationToken cancellationToken)
@@ -128,7 +132,9 @@ public sealed class FriendRequestService(PlayrDbContext dbContext) : IFriendRequ
         request.RespondedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return await LoadDtoAsync(request.Id, cancellationToken);
+        var declinedDto = await LoadDtoAsync(request.Id, cancellationToken);
+        await friendRequestNotifier.NotifyFriendRequestUpdatedAsync(declinedDto, cancellationToken);
+        return declinedDto;
     }
 
     public async Task<FriendRequestDto> CancelAsync(Guid userId, Guid friendRequestId, CancellationToken cancellationToken)
@@ -151,7 +157,9 @@ public sealed class FriendRequestService(PlayrDbContext dbContext) : IFriendRequ
         request.RespondedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return await LoadDtoAsync(request.Id, cancellationToken);
+        var cancelledDto = await LoadDtoAsync(request.Id, cancellationToken);
+        await friendRequestNotifier.NotifyFriendRequestUpdatedAsync(cancelledDto, cancellationToken);
+        return cancelledDto;
     }
 
     private async Task<bool> AreFriendsAsync(Guid userId1, Guid userId2, CancellationToken cancellationToken)

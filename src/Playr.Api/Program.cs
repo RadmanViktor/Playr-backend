@@ -26,6 +26,7 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, ChatUserIdProvider>();
 builder.Services.AddScoped<IChatNotifier, SignalRChatNotifier>();
 builder.Services.AddScoped<IInvitationNotifier, Playr.Api.Invitations.SignalRInvitationNotifier>();
+builder.Services.AddScoped<Playr.Application.Friends.IFriendRequestNotifier, Playr.Api.Friends.SignalRFriendRequestNotifier>();
 
 builder.Services.AddCors(options =>
 {
