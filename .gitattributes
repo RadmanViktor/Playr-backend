@@ -1,0 +1,5 @@
+# Shell scripts and env templates run on Linux. Checking them out with CRLF
+# breaks them: bash reads a lone \r as a command, and a CRLF env file produces
+# variables with trailing carriage returns.
+*.sh text eol=lf
+*.example text eol=lf
