@@ -56,6 +56,7 @@ public class ProfileEndpointConfigurationTests
         profileResponse.GetProperty("Status")!.PropertyType.Should().Be(typeof(ProfileStatus));
         profileResponse.GetProperty("CreatedAt")!.PropertyType.Should().Be(typeof(DateTimeOffset));
         profileResponse.GetProperty("UpdatedAt")!.PropertyType.Should().Be(typeof(DateTimeOffset));
+        profileResponse.GetProperty("LookingForGameNote")!.PropertyType.Should().Be(typeof(string));
 
         var updateProfileRequest = apiAssembly.GetType("Playr.Api.Models.Profiles.UpdateProfileRequest");
         updateProfileRequest.Should().NotBeNull();
@@ -122,6 +123,9 @@ public class ProfileEndpointConfigurationTests
     private sealed class ThrowingProfileService : IProfileService
     {
         public Task<ProfileDto?> GetByUsernameAsync(string username, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
+
+        public Task<ProfileDto?> GetByUsernameAsync(string username, Guid? currentUserId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
 
         public Task<ProfileDto?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken) =>
