@@ -62,6 +62,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             profile.Property(p => p.LookingForPlayStyle)
                 .HasConversion<string>()
                 .HasMaxLength(32);
+            profile.Property(p => p.LookingForGameNote).HasMaxLength(200);
             profile.Property(p => p.ChatSoundEnabled).HasDefaultValue(true).IsRequired();
             profile.Property(p => p.ChatBrowserNotificationsEnabled).HasDefaultValue(true).IsRequired();
             profile.HasOne(p => p.LookingForGame)

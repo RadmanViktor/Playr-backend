@@ -20,6 +20,7 @@ public sealed class UserProfile
     public Guid? LookingForGameId { get; set; }
     public Game? LookingForGame { get; set; }
     public PlayStyle? LookingForPlayStyle { get; set; }
+    public string? LookingForGameNote { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     public bool ChatSoundEnabled { get; set; } = true;
