@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Playr.Application.Profiles;
+using Playr.Domain.Games;
 using Playr.Domain.Identity;
 using Playr.Domain.Profiles;
 using Playr.Infrastructure.Data;
@@ -235,6 +236,99 @@ public sealed class ProfileServiceTests
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("External link values must be absolute HTTP or HTTPS URLs.");
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_persists_trimmed_note_when_looking_for_game()
+    {
+        var (service, dbContext, userId, gameId) = await CreateServiceWithSeededProfileAndGameAsync();
+
+        var result = await service.UpdateStatusAsync(
+            userId,
+            new UpdateStatusCommand(ProfileStatus.LookingForGame, gameId, PlayStyle.Chill, "  need a 4th  "),
+            CancellationToken.None);
+
+        result.LookingForGameNote.Should().Be("need a 4th");
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_rejects_note_over_max_length()
+    {
+        var (service, _, userId, gameId) = await CreateServiceWithSeededProfileAndGameAsync();
+        var overLong = new string('a', 201);
+
+        var act = () => service.UpdateStatusAsync(
+            userId,
+            new UpdateStatusCommand(ProfileStatus.LookingForGame, gameId, PlayStyle.Competitive, overLong),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Looking for game note cannot be longer than 200 characters.");
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_stores_null_note_when_not_provided()
+    {
+        var (service, _, userId, gameId) = await CreateServiceWithSeededProfileAndGameAsync();
+
+        var result = await service.UpdateStatusAsync(
+            userId,
+            new UpdateStatusCommand(ProfileStatus.LookingForGame, gameId, PlayStyle.Competitive, null),
+            CancellationToken.None);
+
+        result.LookingForGameNote.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_clears_note_when_status_changes_away_from_looking_for_game()
+    {
+        var (service, _, userId, gameId) = await CreateServiceWithSeededProfileAndGameAsync();
+        await service.UpdateStatusAsync(
+            userId,
+            new UpdateStatusCommand(ProfileStatus.LookingForGame, gameId, PlayStyle.Chill, "need a 4th"),
+            CancellationToken.None);
+
+        var result = await service.UpdateStatusAsync(
+            userId,
+            new UpdateStatusCommand(ProfileStatus.Online, null, null, null),
+            CancellationToken.None);
+
+        result.LookingForGameNote.Should().BeNull();
+    }
+
+    private static async Task<(ProfileService Service, PlayrDbContext DbContext, Guid UserId, Guid GameId)> CreateServiceWithSeededProfileAndGameAsync()
+    {
+        var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<PlayrDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        var dbContext = new PlayrDbContext(options);
+        await dbContext.Database.EnsureCreatedAsync();
+        var userId = Guid.NewGuid();
+        dbContext.Users.Add(new ApplicationUser
+        {
+            Id = userId,
+            Email = "player@example.com",
+            UserName = "player",
+            NormalizedEmail = "PLAYER@EXAMPLE.COM",
+            NormalizedUserName = "PLAYER"
+        });
+        dbContext.UserProfiles.Add(new UserProfile
+        {
+            UserId = userId,
+            Username = "player",
+            DisplayName = "Player"
+        });
+        var gameId = Guid.NewGuid();
+        dbContext.Games.Add(new Game
+        {
+            Id = gameId,
+            Name = "Chess"
+        });
+        await dbContext.SaveChangesAsync();
+        var service = new ProfileService(dbContext, new Playr.Application.Tests.Posts.NoOpFileStorageService());
+        return (service, dbContext, userId, gameId);
     }
 
     private sealed class ProfileFixture : IAsyncDisposable

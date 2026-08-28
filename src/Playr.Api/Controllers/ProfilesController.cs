@@ -65,7 +65,7 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
         {
             var profile = await profileService.UpdateStatusAsync(
                 userId,
-                new UpdateStatusCommand(request.Status, request.LookingForGameId, request.LookingForPlayStyle),
+                new UpdateStatusCommand(request.Status, request.LookingForGameId, request.LookingForPlayStyle, request.LookingForGameNote),
                 cancellationToken);
 
             return Ok(ToResponse(profile));
@@ -127,6 +127,7 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
         profile.LookingForGameId,
         profile.LookingForGameName,
         profile.LookingForPlayStyle,
+        profile.LookingForGameNote,
         profile.CreatedAt,
         profile.UpdatedAt,
         profile.RelationshipStatus?.ToString(),
@@ -159,6 +160,7 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
             p.LookingForGameId,
             p.LookingForGameName,
             p.LookingForPlayStyle,
+            p.LookingForGameNote,
             p.RelationshipStatus.ToString(),
             p.PendingInvitationId)).ToList());
     }

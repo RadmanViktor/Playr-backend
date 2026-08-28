@@ -20,6 +20,7 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
     private const int MaxDisplayNameLength = 64;
     private const int MaxBioLength = 500;
     private const int MaxRegionLength = 64;
+    private const int MaxLookingForNoteLength = 200;
 
     public async Task<ProfileDto?> GetByUsernameAsync(string username, Guid? currentUserId, CancellationToken cancellationToken)
     {
@@ -117,6 +118,7 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
 
     public async Task<ProfileDto> UpdateStatusAsync(Guid userId, UpdateStatusCommand command, CancellationToken cancellationToken)
     {
+        string? note = null;
         if (command.Status == ProfileStatus.LookingForGame)
         {
             if (command.LookingForGameId is null)
@@ -135,6 +137,8 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
             {
                 throw new InvalidOperationException("The selected game was not found.");
             }
+
+            note = NormalizeOptionalText(command.LookingForGameNote, "Looking for game note", MaxLookingForNoteLength);
         }
 
         var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken)
@@ -145,11 +149,13 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         {
             profile.LookingForGameId = command.LookingForGameId;
             profile.LookingForPlayStyle = command.LookingForPlayStyle;
+            profile.LookingForGameNote = note;
         }
         else
         {
             profile.LookingForGameId = null;
             profile.LookingForPlayStyle = null;
+            profile.LookingForGameNote = null;
         }
 
         profile.UpdatedAt = DateTimeOffset.UtcNow;
@@ -200,6 +206,7 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         profile.LookingForGameId,
         profile.LookingForGame?.Name,
         profile.LookingForPlayStyle,
+        profile.LookingForGameNote,
         profile.CreatedAt,
         profile.UpdatedAt,
         relationshipStatus,
@@ -366,6 +373,7 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
                 p.LookingForGameId,
                 p.LookingForGame?.Name,
                 p.LookingForPlayStyle,
+                p.LookingForGameNote,
                 friendSet.Contains(p.UserId)
                     ? RelationshipStatus.Friends
                     : pending is not null
