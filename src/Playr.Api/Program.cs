@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Playr.Api.Chat;
 using Playr.Api.Hubs;
@@ -94,6 +95,21 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
+
+// Serve uploaded files (avatars, post media, etc.) from a configurable, persistent
+// location that survives redeploys. Falls back to <content root>/wwwroot/uploads
+// when FileStorage:RootPath isn't set (matches LocalFileStorageService's default).
+var fileStorageRoot = builder.Configuration["FileStorage:RootPath"];
+var uploadsRoot = string.IsNullOrWhiteSpace(fileStorageRoot)
+    ? Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads")
+    : Path.Combine(fileStorageRoot, "uploads");
+Directory.CreateDirectory(uploadsRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsRoot),
+    RequestPath = "/uploads"
+});
+
 app.UseCors("FrontendDev");
 app.UseAuthentication();
 app.UseAuthorization();
