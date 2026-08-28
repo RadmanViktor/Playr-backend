@@ -10,3 +10,7 @@ obj/
 # Uploaded media (local dev storage)
 src/Playr.Api/wwwroot/uploads/**
 !src/Playr.Api/wwwroot/uploads/**/.gitkeep
+
+# Production secrets (lives only on the server)
+deploy/playr-api.env
+
