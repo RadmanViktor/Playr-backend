@@ -38,19 +38,30 @@ public sealed class HttpPostsFlowTests : IClassFixture<PlayrWebApplicationFactor
         return client.PutAsync($"/api/posts/{postId}", form);
     }
 
+    /// <summary>
+    /// Registers an account, follows the emailed confirmation link and logs in.
+    /// Confirmation is mandatory: unconfirmed accounts are refused at login.
+    /// </summary>
+    private async Task<string> RegisterConfirmAndLoginAsync(HttpClient client, string email, string username)
+    {
+        await client.PostAsJsonAsync("/api/auth/register",
+            new RegisterRequest(email, username, "Password123"));
+        await _factory.ConfirmEmailAsync(client, email);
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login",
+            new LoginRequest(username, "Password123"));
+        var login = await loginResponse.Content.ReadFromJsonAsync<LoginResponse>();
+        return login!.AccessToken;
+    }
+
     [Fact]
     public async Task Can_register_login_get_games_create_post_and_read_feed()
     {
         using var client = _factory.CreateClient();
 
-        // Register + login
-        await client.PostAsJsonAsync("/api/auth/register",
-            new RegisterRequest("poster@example.com", "poster", "Password123"));
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login",
-            new LoginRequest("poster", "Password123"));
-        var login = await loginResponse.Content.ReadFromJsonAsync<LoginResponse>();
+        // Register + confirm + login
+        var accessToken = await RegisterConfirmAndLoginAsync(client, "poster@example.com", "poster");
         client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", login!.AccessToken);
+            new AuthenticationHeaderValue("Bearer", accessToken);
 
         // GET /api/games returns a non-empty list
         var gamesResponse = await client.GetAsync("/api/games");
@@ -105,13 +116,9 @@ public sealed class HttpPostsFlowTests : IClassFixture<PlayrWebApplicationFactor
     {
         using var client = _factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/register",
-            new RegisterRequest("editor@example.com", "editor", "Password123"));
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login",
-            new LoginRequest("editor", "Password123"));
-        var login = await loginResponse.Content.ReadFromJsonAsync<LoginResponse>();
+        var accessToken = await RegisterConfirmAndLoginAsync(client, "editor@example.com", "editor");
         client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", login!.AccessToken);
+            new AuthenticationHeaderValue("Bearer", accessToken);
 
         var gamesResponse = await client.GetAsync("/api/games");
         var games = await gamesResponse.Content.ReadFromJsonAsync<List<GameResponse>>();
@@ -132,11 +139,7 @@ public sealed class HttpPostsFlowTests : IClassFixture<PlayrWebApplicationFactor
     {
         using var client = _factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/register",
-            new RegisterRequest("owner2@example.com", "owner2", "Password123"));
-        var ownerLogin = await client.PostAsJsonAsync("/api/auth/login",
-            new LoginRequest("owner2", "Password123"));
-        var ownerToken = (await ownerLogin.Content.ReadFromJsonAsync<LoginResponse>())!.AccessToken;
+        var ownerToken = await RegisterConfirmAndLoginAsync(client, "owner2@example.com", "owner2");
 
         var gamesResponse = await client.GetAsync("/api/games");
         var games = await gamesResponse.Content.ReadFromJsonAsync<List<GameResponse>>();
@@ -146,11 +149,8 @@ public sealed class HttpPostsFlowTests : IClassFixture<PlayrWebApplicationFactor
         var createResponse = await PostPostFormAsync(client, gameId, "Owner's post", null);
         var created = await createResponse.Content.ReadFromJsonAsync<PostResponse>();
 
-        await client.PostAsJsonAsync("/api/auth/register",
-            new RegisterRequest("intruder2@example.com", "intruder2", "Password123"));
-        var intruderLogin = await client.PostAsJsonAsync("/api/auth/login",
-            new LoginRequest("intruder2", "Password123"));
-        var intruderToken = (await intruderLogin.Content.ReadFromJsonAsync<LoginResponse>())!.AccessToken;
+        client.DefaultRequestHeaders.Authorization = null;
+        var intruderToken = await RegisterConfirmAndLoginAsync(client, "intruder2@example.com", "intruder2");
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", intruderToken);
         var updateResponse = await PutPostFormAsync(client, created!.Id, "Hacked!", null);
@@ -162,13 +162,9 @@ public sealed class HttpPostsFlowTests : IClassFixture<PlayrWebApplicationFactor
     {
         using var client = _factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/register",
-            new RegisterRequest("deleter@example.com", "deleter", "Password123"));
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login",
-            new LoginRequest("deleter", "Password123"));
-        var login = await loginResponse.Content.ReadFromJsonAsync<LoginResponse>();
+        var accessToken = await RegisterConfirmAndLoginAsync(client, "deleter@example.com", "deleter");
         client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", login!.AccessToken);
+            new AuthenticationHeaderValue("Bearer", accessToken);
 
         var gamesResponse = await client.GetAsync("/api/games");
         var games = await gamesResponse.Content.ReadFromJsonAsync<List<GameResponse>>();

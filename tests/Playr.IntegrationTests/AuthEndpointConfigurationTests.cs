@@ -64,6 +64,17 @@ public class AuthEndpointConfigurationTests
         userResponse.GetProperty("Email")!.PropertyType.Should().Be(typeof(string));
         userResponse.GetProperty("Username")!.PropertyType.Should().Be(typeof(string));
         userResponse.GetProperty("DisplayName")!.PropertyType.Should().Be(typeof(string));
+        userResponse.GetProperty("EmailConfirmed")!.PropertyType.Should().Be(typeof(bool));
+
+        var confirmEmailRequest = apiAssembly.GetType("Playr.Api.Models.Auth.ConfirmEmailRequest");
+        confirmEmailRequest.Should().NotBeNull();
+        AssertRecordParameter<RequiredAttribute>(confirmEmailRequest!, "UserId");
+        AssertRecordParameter<RequiredAttribute>(confirmEmailRequest!, "Token");
+
+        var resendRequest = apiAssembly.GetType("Playr.Api.Models.Auth.ResendConfirmationRequest");
+        resendRequest.Should().NotBeNull();
+        AssertRecordParameter<RequiredAttribute>(resendRequest!, "Email");
+        AssertRecordParameter<EmailAddressAttribute>(resendRequest!, "Email");
 
         var controller = apiAssembly.GetType("Playr.Api.Controllers.AuthController");
         controller.Should().NotBeNull();
@@ -75,6 +86,12 @@ public class AuthEndpointConfigurationTests
         controller.GetMethods()
             .Select(method => method.GetCustomAttribute<HttpPostAttribute>()?.Template)
             .Should().Contain("login");
+        controller.GetMethods()
+            .Select(method => method.GetCustomAttribute<HttpPostAttribute>()?.Template)
+            .Should().Contain("confirm-email");
+        controller.GetMethods()
+            .Select(method => method.GetCustomAttribute<HttpPostAttribute>()?.Template)
+            .Should().Contain("resend-confirmation");
         controller.GetMethods()
             .Where(method => method.GetCustomAttribute<AuthorizeAttribute>() is not null)
             .Select(method => method.GetCustomAttribute<HttpGetAttribute>()?.Template)
@@ -142,6 +159,12 @@ public class AuthEndpointConfigurationTests
             throw new InvalidOperationException("Auth service should not be called.");
 
         public Task<AuthUserDto?> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Auth service should not be called.");
+
+        public Task<bool> ConfirmEmailAsync(Guid userId, string token, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Auth service should not be called.");
+
+        public Task ResendConfirmationAsync(string email, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Auth service should not be called.");
     }
 }

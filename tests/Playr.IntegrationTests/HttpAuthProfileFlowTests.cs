@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -14,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
 using Playr.Api.Models.Auth;
 using Playr.Api.Models.Profiles;
+using Playr.Application.Email;
 using Playr.Domain.Profiles;
 using Playr.Infrastructure.Data;
 
@@ -49,6 +51,13 @@ public sealed class HttpAuthProfileFlowTests : IClassFixture<PlayrWebApplication
         registered!.Email.Should().Be("player@example.com");
         registered.Username.Should().Be("player");
         registered.DisplayName.Should().Be("player");
+        registered.EmailConfirmed.Should().BeFalse();
+
+        // Login is refused until the emailed link has been followed.
+        var unconfirmedLogin = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("player", "Password123"));
+        unconfirmedLogin.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        await _factory.ConfirmEmailAsync(client, "player@example.com");
 
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("player", "Password123"));
         loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -60,8 +69,12 @@ public sealed class HttpAuthProfileFlowTests : IClassFixture<PlayrWebApplication
         var meResponse = await client.GetAsync("/api/auth/me");
         meResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var me = await meResponse.Content.ReadFromJsonAsync<UserResponse>();
-        me.Should().BeEquivalentTo(registered, options => options.Excluding(user => user.DisplayName));
+        // EmailConfirmed is excluded: it was false at registration and is true now.
+        me.Should().BeEquivalentTo(registered, options => options
+            .Excluding(user => user.DisplayName)
+            .Excluding(user => user.EmailConfirmed));
         me!.DisplayName.Should().Be("player");
+        me.EmailConfirmed.Should().BeTrue();
 
         var publicProfileResponse = await client.GetAsync("/api/profiles/player");
         publicProfileResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -91,6 +104,19 @@ public sealed class PlayrWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
 
+    public CapturingEmailSender Emails { get; } = new();
+
+    /// <summary>
+    /// Runs the confirmation link that was emailed to <paramref name="email"/>, so the
+    /// account can log in. Registration no longer grants access on its own.
+    /// </summary>
+    public async Task ConfirmEmailAsync(HttpClient client, string email)
+    {
+        var (userId, token) = Emails.LatestConfirmationFor(email);
+        var response = await client.PostAsJsonAsync("/api/auth/confirm-email", new ConfirmEmailRequest(userId, token));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("Jwt:Issuer", "PLAYR_TESTS");
@@ -104,6 +130,9 @@ public sealed class PlayrWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<DbContextOptions<PlayrDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<PlayrDbContext>>();
             services.AddDbContext<PlayrDbContext>(options => options.UseSqlite(_connection));
+
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender>(Emails);
 
             _connection.Open();
             using var provider = services.BuildServiceProvider();
@@ -119,5 +148,46 @@ public sealed class PlayrWebApplicationFactory : WebApplicationFactory<Program>
         {
             _connection.Dispose();
         }
+    }
+}
+
+public sealed class CapturingEmailSender : IEmailSender
+{
+    private readonly List<(string To, string Body)> _sent = [];
+    private readonly Lock _gate = new();
+
+    public IReadOnlyList<(string To, string Body)> Sent
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _sent.ToList();
+            }
+        }
+    }
+
+    public Task SendAsync(string toAddress, string subject, string htmlBody, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            _sent.Add((toAddress, htmlBody));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public (Guid UserId, string Token) LatestConfirmationFor(string email)
+    {
+        var body = Sent.LastOrDefault(message => string.Equals(message.To, email, StringComparison.OrdinalIgnoreCase)).Body
+            ?? throw new InvalidOperationException($"No confirmation email was sent to {email}.");
+
+        var match = Regex.Match(body, @"confirm-email\?userId=(?<id>[0-9a-fA-F-]+)&amp;token=(?<token>[^""]+)");
+        if (!match.Success)
+        {
+            throw new InvalidOperationException($"Could not find a confirmation link in the email to {email}.");
+        }
+
+        return (Guid.Parse(match.Groups["id"].Value), match.Groups["token"].Value);
     }
 }

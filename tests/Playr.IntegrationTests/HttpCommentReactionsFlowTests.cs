@@ -18,10 +18,11 @@ public sealed class HttpCommentReactionsFlowTests : IClassFixture<PlayrWebApplic
         _factory = factory;
     }
 
-    private static async Task<string> RegisterAndLoginAsync(HttpClient client, string email, string username)
+    private async Task<string> RegisterAndLoginAsync(HttpClient client, string email, string username)
     {
         await client.PostAsJsonAsync("/api/auth/register",
             new RegisterRequest(email, username, "Password123"));
+        await _factory.ConfirmEmailAsync(client, email);
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login",
             new LoginRequest(username, "Password123"));
         var login = await loginResponse.Content.ReadFromJsonAsync<LoginResponse>();
