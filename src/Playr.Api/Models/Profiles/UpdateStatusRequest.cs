@@ -7,4 +7,4 @@ public sealed record UpdateStatusRequest(
     ProfileStatus Status,
     Guid? LookingForGameId,
     PlayStyle? LookingForPlayStyle,
-    [property: StringLength(200)] string? LookingForGameNote);
+    [StringLength(200)] string? LookingForGameNote);
