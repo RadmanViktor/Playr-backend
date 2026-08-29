@@ -133,6 +133,18 @@ public sealed class PostEditDeleteServiceTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task UpdateAsync_AddingNewImage_Succeeds()
+    {
+        await using var stream = new MemoryStream([1, 2, 3, 4]);
+        var media = new PostMediaInput(stream, "photo.jpg", "image/jpeg", stream.Length);
+        var command = new UpdatePostCommand("Updated text", null, [media], []);
+
+        var result = await _service.UpdateAsync(_postId, _authorId, command, CancellationToken.None);
+
+        result.Media.Should().HaveCount(1);
+    }
+
+    [Fact]
     public async Task DeleteAsync_WhenAuthor_RemovesPost()
     {
         await _service.DeleteAsync(_postId, _authorId, CancellationToken.None);

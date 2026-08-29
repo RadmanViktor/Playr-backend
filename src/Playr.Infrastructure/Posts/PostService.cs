@@ -132,7 +132,7 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
                     MediaType = mediaType,
                     SortOrder = sortOrder++,
                 };
-                post.Media.Add(media);
+                dbContext.PostMedia.Add(media);
             }
         }
 
