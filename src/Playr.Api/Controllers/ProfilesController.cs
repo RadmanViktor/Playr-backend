@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Playr.Api.Extensions;
 using Playr.Api.Models.Common;
+using Playr.Api.Models.Games;
 using Playr.Api.Models.Posts;
 using Playr.Api.Models.Profiles;
+using Playr.Application.Games;
 using Playr.Application.Posts;
 using Playr.Application.Profiles;
 using Playr.Application.Common;
@@ -12,7 +14,8 @@ namespace Playr.Api.Controllers;
 
 [ApiController]
 [Route("api/profiles")]
-public sealed class ProfilesController(IProfileService profileService, IPostService postService) : ControllerBase
+public sealed class ProfilesController(
+    IProfileService profileService, IPostService postService, IGameLibraryService gameLibraryService) : ControllerBase
 {
     [HttpGet("{username}")]
     public async Task<ActionResult<ProfileResponse>> GetByUsername(string username, CancellationToken cancellationToken)
@@ -113,6 +116,85 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
             p.Mentions.Select(m => new MentionResponse(m.UserId, m.Username, m.DisplayName)).ToList()
         )).ToList());
     }
+
+    [HttpGet("{username}/library")]
+    public async Task<ActionResult<IReadOnlyList<GameLibraryEntryResponse>>> GetLibraryByUsername(
+        string username, CancellationToken cancellationToken)
+    {
+        var profile = await profileService.GetByUsernameAsync(username, null, cancellationToken);
+        if (profile is null)
+        {
+            return NotFound(new { error = "Profile was not found." });
+        }
+
+        var entries = await gameLibraryService.GetLibraryAsync(profile.UserId, cancellationToken);
+        return Ok(entries.Select(ToLibraryResponse).ToList());
+    }
+
+    [Authorize]
+    [HttpPost("me/library")]
+    public async Task<ActionResult<GameLibraryEntryResponse>> AddGameToLibrary(
+        AddGameToLibraryRequest request, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        try
+        {
+            var entry = await gameLibraryService.AddGameAsync(userId, request.GameId, cancellationToken);
+            return Ok(ToLibraryResponse(entry));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize]
+    [HttpPut("me/library/{gameId:guid}")]
+    public async Task<ActionResult<GameLibraryEntryResponse>> RateGame(
+        Guid gameId, RateGameRequest request, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        try
+        {
+            var entry = await gameLibraryService.RateGameAsync(userId, gameId, request.Rating, request.ReviewText, cancellationToken);
+            return Ok(ToLibraryResponse(entry));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize]
+    [HttpDelete("me/library/{gameId:guid}")]
+    public async Task<IActionResult> RemoveGameFromLibrary(Guid gameId, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        try
+        {
+            await gameLibraryService.RemoveGameAsync(userId, gameId, cancellationToken);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    private static GameLibraryEntryResponse ToLibraryResponse(GameLibraryEntryDto entry) => new(
+        entry.GameId, entry.GameName, entry.GameCoverImageUrl, entry.Genre, entry.Rating, entry.ReviewText, entry.AddedAt, entry.UpdatedAt);
 
     private static ProfileResponse ToResponse(ProfileDto profile) => new(
         profile.UserId,

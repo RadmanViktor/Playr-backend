@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Playr.Api.Controllers;
 using Playr.Api.Models.Profiles;
+using Playr.Application.Games;
 using Playr.Application.Posts;
 using Playr.Application.Profiles;
 using Playr.Domain.Profiles;
@@ -77,7 +78,7 @@ public class ProfileEndpointConfigurationTests
     [InlineData("not-a-guid")]
     public async Task UpdateMe_returns_unauthorized_when_user_id_claim_is_missing_or_invalid(string? userIdClaim)
     {
-        var controller = new ProfilesController(new ThrowingProfileService(), new ThrowingPostService())
+        var controller = new ProfilesController(new ThrowingProfileService(), new ThrowingPostService(), new ThrowingGameLibraryService())
         {
             ControllerContext = new ControllerContext
             {
@@ -155,5 +156,20 @@ public class ProfileEndpointConfigurationTests
             throw new InvalidOperationException("Post service should not be called.");
         public Task<(int LikesCount, bool Liked)> ToggleLikeAsync(Guid postId, Guid userId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Post service should not be called.");
+    }
+
+    private sealed class ThrowingGameLibraryService : IGameLibraryService
+    {
+        public Task<IReadOnlyList<GameLibraryEntryDto>> GetLibraryAsync(Guid userId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Game library service should not be called.");
+
+        public Task<GameLibraryEntryDto> AddGameAsync(Guid userId, Guid gameId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Game library service should not be called.");
+
+        public Task<GameLibraryEntryDto> RateGameAsync(Guid userId, Guid gameId, int rating, string? reviewText, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Game library service should not be called.");
+
+        public Task RemoveGameAsync(Guid userId, Guid gameId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Game library service should not be called.");
     }
 }

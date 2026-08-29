@@ -21,6 +21,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
 {
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<Game> Games => Set<Game>();
+    public DbSet<UserGameLibraryEntry> UserGameLibraryEntries => Set<UserGameLibraryEntry>();
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<PostMedia> PostMedia => Set<PostMedia>();
     public DbSet<PostLike> PostLikes => Set<PostLike>();
@@ -130,6 +131,27 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                 new Game { Id = new Guid("00000001-0000-0000-0000-00000000001f"), Name = "It Takes Two" },
                 new Game { Id = new Guid("00000001-0000-0000-0000-000000000020"), Name = "Cyberpunk 2077" }
             );
+        });
+
+        builder.Entity<UserGameLibraryEntry>(entry =>
+        {
+            entry.HasKey(e => new { e.UserId, e.GameId });
+            entry.Property(e => e.ReviewText).HasMaxLength(1000);
+            entry.HasOne(e => e.Game)
+                .WithMany()
+                .HasForeignKey(e => e.GameId)
+                .OnDelete(DeleteBehavior.Cascade);
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                entry.Property(e => e.AddedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                entry.Property(e => e.UpdatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+            }
         });
 
         builder.Entity<Post>(post =>
