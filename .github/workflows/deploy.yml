@@ -135,6 +135,27 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
+
+          # Fail loudly and name the offending secret if any value contains an
+          # embedded newline - that would corrupt every following line when
+          # systemd reads the file, and the previous blanket "line count"
+          # check couldn't say which secret was at fault.
+          bad=''
+          for name in ASPNETCORE_ENVIRONMENT ASPNETCORE_URLS CONNECTIONSTRINGS__DEFAULTCONNECTION \
+            EMAIL__FROMADDRESS EMAIL__FROMNAME EMAIL__HOST EMAIL__PASSWORD EMAIL__PORT EMAIL__USERNAME EMAIL__USESTARTTLS \
+            FILESTORAGE__ROOTPATH FRONTEND__BASEURL JWT__AUDIENCE JWT__EXPIRATIONMINUTES JWT__ISSUER JWT__SIGNINGKEY \
+            RAWG__APIKEY STEAM__APIKEY STEAM__SYNCINTERVALHOURS; do
+            value="${!name}"
+            if [ "$(printf '%s' "$value" | wc -l)" -ne 0 ]; then
+              bad="$bad $name"
+            fi
+          done
+          if [ -n "$bad" ]; then
+            echo "These secrets contain an embedded newline (probably pasted with a trailing blank line):$bad"
+            echo "Edit each one in GitHub -> Settings -> Environments -> production and remove the trailing newline."
+            exit 1
+          fi
+
           {
             printf 'ASPNETCORE_ENVIRONMENT=%s\n' "$ASPNETCORE_ENVIRONMENT"
             printf 'ASPNETCORE_URLS=%s\n' "$ASPNETCORE_URLS"
@@ -157,12 +178,12 @@ jobs:
             printf 'Email__UseStartTls=%s\n' "$EMAIL__USESTARTTLS"
           } > playr-api.env
 
-          # Guard against a value containing a newline, which would corrupt every
-          # following line when systemd reads the file.
+          # Belt-and-braces: still confirm the final line count, in case two
+          # values are missing content in a way that happens to still sum to 19.
           expected=19
           actual=$(wc -l < playr-api.env)
           if [ "$actual" -ne "$expected" ]; then
-            echo "Environment file has $actual lines, expected $expected. A secret probably contains a newline."
+            echo "Environment file has $actual lines, expected $expected."
             exit 1
           fi
 
