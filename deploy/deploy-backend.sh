@@ -58,6 +58,24 @@ sudo systemctl restart playr-api
 sleep 2
 sudo systemctl status playr-api --no-pager | head -8
 
-echo "==> Done. Health check:"
-curl -s http://127.0.0.1:5258/health
-echo
+echo "==> Waiting for health check"
+# The app can take a few seconds to bind its port after systemd reports the
+# service as active, so retry instead of checking once - a single early
+# "Connection refused" would otherwise fail this whole script (set -e) even
+# though the restart itself succeeded and the app comes up moments later.
+health_ok=false
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -sS -f http://127.0.0.1:5258/health; then
+    echo
+    health_ok=true
+    break
+  fi
+  sleep 1
+done
+
+if [ "$health_ok" != true ]; then
+  echo "ERROR: health check did not succeed within 10 seconds after restart."
+  exit 1
+fi
+
+echo "==> Done."
