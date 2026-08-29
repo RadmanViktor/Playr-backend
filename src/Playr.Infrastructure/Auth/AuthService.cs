@@ -18,6 +18,7 @@ public sealed class AuthService(
     JwtTokenGenerator tokenGenerator,
     IEmailSender emailSender,
     IOptions<FrontendOptions> frontendOptions,
+    IOptions<AuthOptions> authOptions,
     ILogger<AuthService> logger) : IAuthService
 {
     private const string LoginFailureMessage = "Invalid username/email or password.";
@@ -57,6 +58,11 @@ public sealed class AuthService(
 
         dbContext.UserProfiles.Add(profile);
 
+        if (authOptions.Value.AutoConfirmEmailOnRegister)
+        {
+            user.EmailConfirmed = true;
+        }
+
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -67,6 +73,13 @@ public sealed class AuthService(
             await transaction.RollbackAsync(cancellationToken);
             await userManager.DeleteAsync(user);
             throw;
+        }
+
+        if (authOptions.Value.AutoConfirmEmailOnRegister)
+        {
+            // Local development: skip the confirmation email entirely since the account
+            // is already confirmed, so there's no link for the user to click.
+            return ToDto(user, profile.DisplayName);
         }
 
         // The account exists at this point; a failed email must not undo registration.

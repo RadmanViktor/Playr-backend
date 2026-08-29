@@ -62,6 +62,8 @@ public static class DependencyInjection
         services.AddScoped<Playr.Application.Notifications.INotificationPreferencesService, Playr.Infrastructure.Notifications.NotificationPreferencesService>();
         services.AddSingleton<Playr.Application.Storage.IFileStorageService, Playr.Infrastructure.Storage.LocalFileStorageService>();
 
+        services.Configure<Playr.Application.Auth.AuthOptions>(configuration.GetSection(Playr.Application.Auth.AuthOptions.SectionName));
+
         services.Configure<SteamOptions>(configuration.GetSection(SteamOptions.SectionName));
         services.AddHttpClient(nameof(SteamOpenIdService));
         services.AddHttpClient<SteamApiClient>(client =>

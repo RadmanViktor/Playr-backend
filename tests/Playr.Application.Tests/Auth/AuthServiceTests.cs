@@ -87,6 +87,22 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
+    public async Task RegisterAsync_WhenAutoConfirmIsEnabled_ConfirmsAccountAndSendsNoEmail()
+    {
+        await using var fixture = await AuthFixture.CreateAsync(authOptions: new AuthOptions { AutoConfirmEmailOnRegister = true });
+
+        var user = await fixture.Service.RegisterAsync(
+            new RegisterUserCommand("player@example.com", "player", "Password123"),
+            CancellationToken.None);
+
+        user.EmailConfirmed.Should().BeTrue();
+        fixture.EmailSender.Sent.Should().BeEmpty();
+
+        var stored = await fixture.UserManager.FindByNameAsync("player");
+        stored!.EmailConfirmed.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task ConfirmEmailAsync_WithTokenFromRegistration_ConfirmsTheAccount()
     {
         await using var fixture = await AuthFixture.CreateAsync();
@@ -306,7 +322,7 @@ public sealed class AuthServiceTests
             return user;
         }
 
-        public static async Task<AuthFixture> CreateAsync(Action<RecordingEmailSender>? configure = null)
+        public static async Task<AuthFixture> CreateAsync(Action<RecordingEmailSender>? configure = null, AuthOptions? authOptions = null)
         {
             var connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
@@ -339,6 +355,7 @@ public sealed class AuthServiceTests
                 ExpirationMinutes = 60
             }));
             services.AddSingleton(Options.Create(new FrontendOptions { BaseUrl = "https://playr.test" }));
+            services.AddSingleton(Options.Create(authOptions ?? new AuthOptions()));
             services.AddSingleton<IEmailSender>(emailSender);
             services.AddScoped<JwtTokenGenerator>();
             services.AddScoped<AuthService>();
