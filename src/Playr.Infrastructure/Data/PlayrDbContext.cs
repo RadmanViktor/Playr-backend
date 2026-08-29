@@ -99,7 +99,31 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                 new Game { Id = new Guid("00000001-0000-0000-0000-000000000005"), Name = "Elden Ring" },
                 new Game { Id = new Guid("00000001-0000-0000-0000-000000000006"), Name = "Genshin Impact" },
                 new Game { Id = new Guid("00000001-0000-0000-0000-000000000007"), Name = "Hollow Knight" },
-                new Game { Id = new Guid("00000001-0000-0000-0000-000000000008"), Name = "Valorant" }
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000008"), Name = "Valorant" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000009"), Name = "Doom" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-00000000000a"), Name = "Dota 2" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-00000000000b"), Name = "League of Legends" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-00000000000c"), Name = "EA Sports FC 25" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-00000000000d"), Name = "UFC 6" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-00000000000e"), Name = "Hogwarts Legacy" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-00000000000f"), Name = "Unravel Two" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000010"), Name = "Marvel's Spider-Man 2" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000011"), Name = "God of War Ragnarök" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000012"), Name = "The Last of Us Part II" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000013"), Name = "Horizon Forbidden West" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000014"), Name = "Grand Theft Auto V" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000015"), Name = "Minecraft" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000016"), Name = "Fortnite" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000017"), Name = "Overwatch 2" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000018"), Name = "Rocket League" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000019"), Name = "Rainbow Six Siege" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-00000000001a"), Name = "Pokémon Scarlet/Violet" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-00000000001b"), Name = "Mario Kart 8 Deluxe" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-00000000001c"), Name = "The Legend of Zelda: Tears of the Kingdom" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-00000000001d"), Name = "Baldur's Gate 3" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-00000000001e"), Name = "Stardew Valley" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-00000000001f"), Name = "It Takes Two" },
+                new Game { Id = new Guid("00000001-0000-0000-0000-000000000020"), Name = "Cyberpunk 2077" }
             );
         });
 
