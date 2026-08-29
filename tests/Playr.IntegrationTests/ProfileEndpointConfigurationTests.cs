@@ -21,15 +21,7 @@ public class ProfileEndpointConfigurationTests
     [Fact]
     public void AddInfrastructure_registers_profile_services()
     {
-        var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Database=playr;Username=playr;Password=playr_dev_password"
-            })
-            .Build();
-
-        services.AddInfrastructure(configuration);
+        var services = InfrastructureTestServices.CreateWithInfrastructure();
 
         using var provider = services.BuildServiceProvider();
 

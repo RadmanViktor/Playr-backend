@@ -18,14 +18,7 @@ public class GamesAndPostsEndpointConfigurationTests
     [Fact]
     public void AddInfrastructure_registers_game_and_post_services()
     {
-        var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Database=playr;Username=playr;Password=playr_dev_password"
-            })
-            .Build();
-        services.AddInfrastructure(configuration);
+        var services = InfrastructureTestServices.CreateWithInfrastructure();
         using var provider = services.BuildServiceProvider();
         provider.GetService<IGameService>().Should().NotBeNull();
         provider.GetService<IPostService>().Should().NotBeNull();

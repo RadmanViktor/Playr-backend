@@ -1,0 +1,177 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Redundant PR runs are pointless, so cancel them. Pushes to main are NOT
+# cancelled - killing a run mid-deploy would leave the service half-updated.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  DEPLOY_HOST: 87.106.19.210
+  DEPLOY_USER: viktor
+  SITE_URL: https://www.playr.viktorradman.se
+
+  # Non-secret configuration. Secrets are injected separately in the deploy job.
+  ASPNETCORE_URLS_VALUE: http://127.0.0.1:5258
+  DB_HOST: localhost
+  DB_PORT: '5432'
+  DB_NAME: playr
+  DB_USER: playr
+  JWT_ISSUER: PLAYR
+  JWT_AUDIENCE: PLAYR
+  JWT_EXPIRATION_MINUTES: '60'
+  STEAM_SYNC_INTERVAL_HOURS: '12'
+  FILE_STORAGE_ROOT: /home/viktor/apps/playr-uploads
+  FRONTEND_BASE_URL: https://www.playr.viktorradman.se
+  SMTP_HOST: smtp-relay.brevo.com
+  SMTP_PORT: '587'
+  SMTP_FROM_ADDRESS: no-reply@playr.viktorradman.se
+  SMTP_FROM_NAME: PLAYR
+
+jobs:
+  verify:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore Playr.sln
+
+      - name: Build
+        run: dotnet build Playr.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test Playr.sln --configuration Release --no-build --verbosity normal
+
+  deploy:
+    name: Deploy to production
+    needs: verify
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check required secrets are present
+        # Writing an env file from an empty secret would silently break production
+        # (an empty Jwt__SigningKey fails startup validation, an empty database
+        # password fails migrations). Fail loudly here instead.
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
+          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_KEY: ${{ secrets.SMTP_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          missing=''
+          for name in DB_PASSWORD JWT_SIGNING_KEY STEAM_API_KEY SMTP_USERNAME SMTP_KEY SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
+            if [ -z "${!name:-}" ]; then
+              missing="$missing $name"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Missing required secrets:$missing"
+            exit 1
+          fi
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Pinning the host key. StrictHostKeyChecking=no would leave the
+          # deploy open to man-in-the-middle.
+          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Build environment file
+        # printf with quoted variables, not a heredoc: secret values may contain
+        # '$', backticks or backslashes, which an unquoted heredoc would expand.
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
+          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_KEY: ${{ secrets.SMTP_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          {
+            printf 'ASPNETCORE_ENVIRONMENT=Production\n'
+            printf 'ASPNETCORE_URLS=%s\n' "$ASPNETCORE_URLS_VALUE"
+            printf 'ConnectionStrings__DefaultConnection=Host=%s;Port=%s;Database=%s;Username=%s;Password=%s\n' \
+              "$DB_HOST" "$DB_PORT" "$DB_NAME" "$DB_USER" "$DB_PASSWORD"
+            printf 'Jwt__Issuer=%s\n' "$JWT_ISSUER"
+            printf 'Jwt__Audience=%s\n' "$JWT_AUDIENCE"
+            printf 'Jwt__SigningKey=%s\n' "$JWT_SIGNING_KEY"
+            printf 'Jwt__ExpirationMinutes=%s\n' "$JWT_EXPIRATION_MINUTES"
+            printf 'Steam__ApiKey=%s\n' "$STEAM_API_KEY"
+            printf 'Steam__SyncIntervalHours=%s\n' "$STEAM_SYNC_INTERVAL_HOURS"
+            printf 'FileStorage__RootPath=%s\n' "$FILE_STORAGE_ROOT"
+            printf 'Frontend__BaseUrl=%s\n' "$FRONTEND_BASE_URL"
+            printf 'Email__Host=%s\n' "$SMTP_HOST"
+            printf 'Email__Port=%s\n' "$SMTP_PORT"
+            printf 'Email__Username=%s\n' "$SMTP_USERNAME"
+            printf 'Email__Password=%s\n' "$SMTP_KEY"
+            printf 'Email__FromAddress=%s\n' "$SMTP_FROM_ADDRESS"
+            printf 'Email__FromName=%s\n' "$SMTP_FROM_NAME"
+            printf 'Email__UseStartTls=true\n'
+          } > playr-api.env
+
+          # Guard against a value containing a newline, which would corrupt every
+          # following line when systemd reads the file.
+          expected=18
+          actual=$(wc -l < playr-api.env)
+          if [ "$actual" -ne "$expected" ]; then
+            echo "Environment file has $actual lines, expected $expected. A secret probably contains a newline."
+            exit 1
+          fi
+
+      - name: Upload environment file
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes \
+            playr-api.env "$DEPLOY_USER@$DEPLOY_HOST:~/apps/playr-api.env"
+          ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" 'chmod 600 ~/apps/playr-api.env'
+
+      - name: Deploy
+        # The script pulls the repo, publishes, applies EF migrations, restarts
+        # the service and health-checks it locally.
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            'cd ~/apps/playr-api-src && ./deploy/deploy-backend.sh'
+
+      - name: Smoke check
+        run: |
+          set -euo pipefail
+          type=$(curl -sS -o /dev/null -w '%{content_type}' "$SITE_URL/api/games")
+          echo "GET /api/games -> $type"
+          case "$type" in
+            application/json*) ;;
+            *) echo "API is not returning JSON"; exit 1 ;;
+          esac
+
+      - name: Clean up secrets
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519 playr-api.env
