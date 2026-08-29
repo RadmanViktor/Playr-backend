@@ -1,13 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Playr.Application.Chat;
+using Playr.Application.Storage;
 using Playr.Domain.Chat;
 using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Chat;
 
-public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNotifier) : IChatService
+public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNotifier, IFileStorageService fileStorageService) : IChatService
 {
     private const int MaxMessageLength = 1000;
+    private const string MediaSubFolder = "chat";
 
     public async Task<IReadOnlyList<ConversationDto>> GetConversationsAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -82,14 +84,24 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
         }
 
         var body = command.Body?.Trim() ?? string.Empty;
-        if (body.Length == 0)
-        {
-            throw new InvalidOperationException("Message is required.");
-        }
-
         if (body.Length > MaxMessageLength)
         {
             throw new InvalidOperationException($"Message cannot be longer than {MaxMessageLength} characters.");
+        }
+
+        string? mediaUrl = null;
+        ChatMediaType? mediaType = null;
+        if (command.Media is not null)
+        {
+            var (validatedType, extension) = ChatMediaValidator.Validate(command.Media);
+            var saved = await fileStorageService.SaveAsync(command.Media.Content, extension, MediaSubFolder, cancellationToken);
+            mediaUrl = saved.RelativeUrl;
+            mediaType = validatedType;
+        }
+
+        if (body.Length == 0 && mediaUrl is null)
+        {
+            throw new InvalidOperationException("Message is required.");
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -99,6 +111,8 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
             ConversationId = conversationId,
             SenderUserId = userId,
             Body = body,
+            MediaUrl = mediaUrl,
+            MediaType = mediaType,
             CreatedAt = now
         };
         conversation.UpdatedAt = now;
@@ -191,6 +205,8 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
                 profile.DisplayName,
                 profile.AvatarUrl,
                 message.Body,
+                message.MediaUrl,
+                message.MediaType,
                 message.CreatedAt,
                 message.ReadAt);
         }).ToList();

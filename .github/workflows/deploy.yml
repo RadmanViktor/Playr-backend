@@ -74,6 +74,7 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+          RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }}
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_KEY: ${{ secrets.SMTP_KEY }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -81,7 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           missing=''
-          for name in DB_PASSWORD JWT_SIGNING_KEY STEAM_API_KEY SMTP_USERNAME SMTP_KEY SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
+          for name in DB_PASSWORD JWT_SIGNING_KEY STEAM_API_KEY RAWG_API_KEY SMTP_USERNAME SMTP_KEY SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
             if [ -z "${!name:-}" ]; then
               missing="$missing $name"
             fi
@@ -109,6 +110,7 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+          RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }}
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_KEY: ${{ secrets.SMTP_KEY }}
         run: |
@@ -125,6 +127,7 @@ jobs:
             printf 'Jwt__ExpirationMinutes=%s\n' "$JWT_EXPIRATION_MINUTES"
             printf 'Steam__ApiKey=%s\n' "$STEAM_API_KEY"
             printf 'Steam__SyncIntervalHours=%s\n' "$STEAM_SYNC_INTERVAL_HOURS"
+            printf 'Rawg__ApiKey=%s\n' "$RAWG_API_KEY"
             printf 'FileStorage__RootPath=%s\n' "$FILE_STORAGE_ROOT"
             printf 'Frontend__BaseUrl=%s\n' "$FRONTEND_BASE_URL"
             printf 'Email__Host=%s\n' "$SMTP_HOST"
@@ -138,7 +141,7 @@ jobs:
 
           # Guard against a value containing a newline, which would corrupt every
           # following line when systemd reads the file.
-          expected=18
+          expected=19
           actual=$(wc -l < playr-api.env)
           if [ "$actual" -ne "$expected" ]; then
             echo "Environment file has $actual lines, expected $expected. A secret probably contains a newline."

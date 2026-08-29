@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Playr.Application.Chat;
+using Playr.Application.Tests.Posts;
 using Playr.Domain.Friendships;
 using Playr.Domain.Identity;
 using Playr.Domain.Profiles;
@@ -60,7 +61,7 @@ public sealed class ChatServiceTests
         var message = await fixture.Service.SendMessageAsync(
             fixture.CurrentUserId,
             conversation.Id,
-            new SendChatMessageCommand("  hello there  "),
+            new SendChatMessageCommand("  hello there  ", null),
             CancellationToken.None);
 
         message.Body.Should().Be("hello there");
@@ -82,7 +83,7 @@ public sealed class ChatServiceTests
         var act = () => fixture.Service.SendMessageAsync(
             fixture.CurrentUserId,
             conversation.Id,
-            new SendChatMessageCommand("   "),
+            new SendChatMessageCommand("   ", null),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
@@ -113,7 +114,7 @@ public sealed class ChatServiceTests
                 .Options;
             var dbContext = new PlayrDbContext(options);
             await dbContext.Database.EnsureCreatedAsync();
-            var fixture = new ChatFixture(connection, dbContext, new ChatService(dbContext, new NoOpChatNotifier()));
+            var fixture = new ChatFixture(connection, dbContext, new ChatService(dbContext, new NoOpChatNotifier(), new NoOpFileStorageService()));
             fixture.AddUser(fixture.CurrentUserId, "player", "Player");
             fixture.AddUser(fixture.OtherUserId, "friend", "Friend");
             await dbContext.SaveChangesAsync();

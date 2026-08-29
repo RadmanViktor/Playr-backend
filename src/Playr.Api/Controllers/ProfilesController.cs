@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Playr.Api.Extensions;
+using Playr.Api.Models.Common;
 using Playr.Api.Models.Posts;
 using Playr.Api.Models.Profiles;
 using Playr.Application.Posts;
@@ -108,7 +109,8 @@ public sealed class ProfilesController(IProfileService profileService, IPostServ
             p.Id, p.AuthorId, p.AuthorUsername, p.AuthorDisplayName, p.AuthorAvatarUrl,
             p.GameId, p.GameName, p.GameCoverImageUrl, p.TextContent, p.Mood,
             p.Media.Select(m => new PostMediaResponse(m.Id, m.Url, m.MediaType, m.SortOrder)).ToList(),
-            p.CreatedAt, p.LikesCount, p.LikedByCurrentUser, p.CommentsCount
+            p.CreatedAt, p.LikesCount, p.LikedByCurrentUser, p.CommentsCount,
+            p.Mentions.Select(m => new MentionResponse(m.UserId, m.Username, m.DisplayName)).ToList()
         )).ToList());
     }
 

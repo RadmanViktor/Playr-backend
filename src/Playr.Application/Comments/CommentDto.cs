@@ -1,3 +1,5 @@
+using Playr.Application.Common;
+
 namespace Playr.Application.Comments;
 
 public sealed record CommentDto(
@@ -10,4 +12,5 @@ public sealed record CommentDto(
     string TextContent,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
-    CommentReactionSummary Reactions);
+    CommentReactionSummary Reactions,
+    IReadOnlyList<MentionDto> Mentions);

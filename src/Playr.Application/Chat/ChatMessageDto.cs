@@ -1,3 +1,5 @@
+using Playr.Domain.Chat;
+
 namespace Playr.Application.Chat;
 
 public sealed record ChatMessageDto(
@@ -8,5 +10,7 @@ public sealed record ChatMessageDto(
     string SenderDisplayName,
     string? SenderAvatarUrl,
     string Body,
+    string? MediaUrl,
+    ChatMediaType? MediaType,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ReadAt);

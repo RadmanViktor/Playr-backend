@@ -4,6 +4,7 @@ public interface IPostService
 {
     Task<PostDto> CreateAsync(Guid authorId, CreatePostCommand command, CancellationToken cancellationToken);
     Task<IReadOnlyList<PostDto>> GetFeedAsync(Guid? currentUserId, CancellationToken cancellationToken);
+    Task<PostDto?> GetByIdAsync(Guid postId, Guid? currentUserId, CancellationToken cancellationToken);
     Task<PostDto> UpdateAsync(Guid postId, Guid requesterId, UpdatePostCommand command, CancellationToken cancellationToken);
     Task DeleteAsync(Guid postId, Guid requesterId, CancellationToken cancellationToken);
     Task<IReadOnlyList<PostDto>> GetByUsernameAsync(string username, Guid? currentUserId, CancellationToken cancellationToken);

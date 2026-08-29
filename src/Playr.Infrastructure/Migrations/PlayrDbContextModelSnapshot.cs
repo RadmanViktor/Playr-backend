@@ -170,6 +170,13 @@ namespace Playr.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("MediaType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("MediaUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<DateTimeOffset?>("ReadAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -336,7 +343,14 @@ namespace Playr.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<long?>("RawgId")
+                        .HasColumnType("bigint");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("RawgId")
+                        .IsUnique()
+                        .HasFilter("\"RawgId\" IS NOT NULL");
 
                     b.ToTable("Games");
 
@@ -610,6 +624,70 @@ namespace Playr.Infrastructure.Migrations
                     b.ToTable("Invitations");
                 });
 
+            modelBuilder.Entity("Playr.Domain.Notifications.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CommentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("PostId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("RecipientUserId", "CreatedAt");
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("Playr.Domain.Posts.CommentMention", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CommentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MentionedUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UsernameAtTimeOfPosting")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CommentId");
+
+                    b.HasIndex("MentionedUserId");
+
+                    b.ToTable("CommentMentions");
+                });
+
             modelBuilder.Entity("Playr.Domain.Posts.Post", b =>
                 {
                     b.Property<Guid>("Id")
@@ -720,6 +798,32 @@ namespace Playr.Infrastructure.Migrations
                     b.HasIndex("PostId", "SortOrder");
 
                     b.ToTable("PostMedia");
+                });
+
+            modelBuilder.Entity("Playr.Domain.Posts.PostMention", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MentionedUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PostId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UsernameAtTimeOfPosting")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MentionedUserId");
+
+                    b.HasIndex("PostId");
+
+                    b.ToTable("PostMentions");
                 });
 
             modelBuilder.Entity("Playr.Domain.Profiles.UserProfile", b =>
@@ -1112,6 +1216,44 @@ namespace Playr.Infrastructure.Migrations
                     b.Navigation("Sender");
                 });
 
+            modelBuilder.Entity("Playr.Domain.Notifications.Notification", b =>
+                {
+                    b.HasOne("Playr.Domain.Identity.ApplicationUser", "Actor")
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Playr.Domain.Identity.ApplicationUser", "Recipient")
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Actor");
+
+                    b.Navigation("Recipient");
+                });
+
+            modelBuilder.Entity("Playr.Domain.Posts.CommentMention", b =>
+                {
+                    b.HasOne("Playr.Domain.Posts.PostComment", "Comment")
+                        .WithMany()
+                        .HasForeignKey("CommentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Playr.Domain.Identity.ApplicationUser", "MentionedUser")
+                        .WithMany()
+                        .HasForeignKey("MentionedUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Comment");
+
+                    b.Navigation("MentionedUser");
+                });
+
             modelBuilder.Entity("Playr.Domain.Posts.Post", b =>
                 {
                     b.HasOne("Playr.Domain.Identity.ApplicationUser", "Author")
@@ -1168,6 +1310,25 @@ namespace Playr.Infrastructure.Migrations
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("Playr.Domain.Posts.PostMention", b =>
+                {
+                    b.HasOne("Playr.Domain.Identity.ApplicationUser", "MentionedUser")
+                        .WithMany()
+                        .HasForeignKey("MentionedUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Playr.Domain.Posts.Post", "Post")
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MentionedUser");
 
                     b.Navigation("Post");
                 });

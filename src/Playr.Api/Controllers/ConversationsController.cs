@@ -64,7 +64,7 @@ public sealed class ConversationsController(IChatService chatService) : Controll
     [HttpPost("{id:guid}/messages")]
     public async Task<ActionResult<ChatMessageResponse>> SendMessage(
         Guid id,
-        SendChatMessageRequest request,
+        [FromForm] SendChatMessageRequest request,
         CancellationToken cancellationToken)
     {
         if (!User.TryGetUserId(out var userId))
@@ -74,7 +74,10 @@ public sealed class ConversationsController(IChatService chatService) : Controll
 
         try
         {
-            var message = await chatService.SendMessageAsync(userId, id, new SendChatMessageCommand(request.Body), cancellationToken);
+            var media = request.Media is { Length: > 0 }
+                ? new ChatMediaInput(request.Media.OpenReadStream(), request.Media.FileName, request.Media.ContentType, request.Media.Length)
+                : null;
+            var message = await chatService.SendMessageAsync(userId, id, new SendChatMessageCommand(request.Body, media), cancellationToken);
             return Ok(ToResponse(message));
         }
         catch (InvalidOperationException ex) when (ex.Message is "Conversation was not found.")
@@ -111,6 +114,8 @@ public sealed class ConversationsController(IChatService chatService) : Controll
         message.SenderDisplayName,
         message.SenderAvatarUrl,
         message.Body,
+        message.MediaUrl,
+        message.MediaType,
         message.CreatedAt,
         message.ReadAt);
 }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Playr.Api.Extensions;
+using Playr.Api.Models.Common;
 using Playr.Api.Models.Posts;
 using Playr.Application.Posts;
 
@@ -20,7 +21,7 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         try
         {
             var post = await postService.CreateAsync(userId,
-                new CreatePostCommand(request.GameId, request.TextContent, request.Mood, ToMediaInputs(request.Media)),
+                new CreatePostCommand(request.GameId, request.TextContent, request.Mood, ToMediaInputs(request.Media), request.MentionedUserIds),
                 cancellationToken);
             return CreatedAtAction(nameof(GetFeed), ToResponse(post));
         }
@@ -36,6 +37,14 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         Guid? currentUserId = User.TryGetUserId(out var uid) ? uid : null;
         var posts = await postService.GetFeedAsync(currentUserId, cancellationToken);
         return Ok(posts.Select(ToResponse).ToList());
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<PostResponse>> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        Guid? currentUserId = User.TryGetUserId(out var uid) ? uid : null;
+        var post = await postService.GetByIdAsync(id, currentUserId, cancellationToken);
+        return post is null ? NotFound(new { error = "Post was not found." }) : Ok(ToResponse(post));
     }
 
     [Authorize]
@@ -114,7 +123,8 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         post.CreatedAt,
         post.LikesCount,
         post.LikedByCurrentUser,
-        post.CommentsCount);
+        post.CommentsCount,
+        post.Mentions.Select(m => new MentionResponse(m.UserId, m.Username, m.DisplayName)).ToList());
 
     [Authorize]
     [HttpPost("{id:guid}/like")]

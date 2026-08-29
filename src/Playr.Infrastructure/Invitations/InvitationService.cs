@@ -110,7 +110,7 @@ public sealed class InvitationService(PlayrDbContext dbContext, IChatService cha
         await chatService.SendMessageAsync(
             invitation.SenderUserId,
             conversation.Id,
-            new SendChatMessageCommand(invitation.Message),
+            new SendChatMessageCommand(invitation.Message, null),
             cancellationToken);
 
         var dto = await LoadDtoAsync(invitation.Id, cancellationToken);

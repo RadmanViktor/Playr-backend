@@ -150,6 +150,8 @@ public class GamesAndPostsEndpointConfigurationTests
             throw new InvalidOperationException("Should not be called.");
         public Task<IReadOnlyList<PostDto>> GetFeedAsync(Guid? currentUserId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Should not be called.");
+        public Task<PostDto?> GetByIdAsync(Guid postId, Guid? currentUserId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Should not be called.");
         public Task<PostDto> UpdateAsync(Guid postId, Guid requesterId, UpdatePostCommand command, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Should not be called.");
         public Task DeleteAsync(Guid postId, Guid requesterId, CancellationToken cancellationToken) =>

@@ -3,6 +3,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Playr.Application.Invitations;
 using Playr.Application.Tests.Chat;
+using Playr.Application.Tests.Posts;
 using Playr.Domain.Identity;
 using Playr.Domain.Profiles;
 using Playr.Infrastructure.Chat;
@@ -85,7 +86,7 @@ public sealed class InvitationServiceTests
                 .Options;
             var dbContext = new PlayrDbContext(options);
             await dbContext.Database.EnsureCreatedAsync();
-            var chatService = new ChatService(dbContext, new NoOpChatNotifier());
+            var chatService = new ChatService(dbContext, new NoOpChatNotifier(), new NoOpFileStorageService());
             var fixture = new InvitationFixture(connection, dbContext, new InvitationService(dbContext, chatService, new NoOpInvitationNotifier()));
             fixture.AddUser(fixture.SenderUserId, "sender", "Sender");
             fixture.AddUser(fixture.RecipientUserId, "recipient", "Recipient");

@@ -8,6 +8,7 @@ using Playr.Application.Email;
 using Playr.Domain.Identity;
 using Playr.Infrastructure.Data;
 using Playr.Infrastructure.Email;
+using Playr.Infrastructure.Rawg;
 using Playr.Infrastructure.Steam;
 
 namespace Playr.Infrastructure;
@@ -60,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<Playr.Application.Friends.IFriendRequestService, Playr.Infrastructure.Friends.FriendRequestService>();
         services.AddScoped<Playr.Application.Chat.IChatService, Playr.Infrastructure.Chat.ChatService>();
         services.AddScoped<Playr.Application.Notifications.INotificationPreferencesService, Playr.Infrastructure.Notifications.NotificationPreferencesService>();
+        services.AddScoped<Playr.Application.Notifications.INotificationFeedService, Playr.Infrastructure.Notifications.NotificationFeedService>();
         services.AddSingleton<Playr.Application.Storage.IFileStorageService, Playr.Infrastructure.Storage.LocalFileStorageService>();
 
         services.Configure<Playr.Application.Auth.AuthOptions>(configuration.GetSection(Playr.Application.Auth.AuthOptions.SectionName));
@@ -73,6 +75,12 @@ public static class DependencyInjection
         services.AddScoped<SteamOpenIdService>();
         services.AddScoped<Playr.Application.Steam.ISteamService, SteamService>();
         services.AddHostedService<SteamSyncBackgroundService>();
+
+        services.Configure<RawgOptions>(configuration.GetSection(RawgOptions.SectionName));
+        services.AddHttpClient<RawgApiClient>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.rawg.io");
+        });
 
         return services;
     }

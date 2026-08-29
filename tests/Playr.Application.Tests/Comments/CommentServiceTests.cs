@@ -49,7 +49,7 @@ public sealed class CommentServiceTests : IAsyncDisposable
         _dbContext.PostComments.Add(new PostComment { Id = _commentId, PostId = _postId, AuthorId = _authorId, TextContent = "Nice!", CreatedAt = DateTimeOffset.UtcNow });
         _dbContext.SaveChanges();
 
-        _service = new CommentService(_dbContext);
+        _service = new CommentService(_dbContext, new Playr.Application.Tests.Notifications.NoOpNotificationFeedService());
     }
 
     [Fact]

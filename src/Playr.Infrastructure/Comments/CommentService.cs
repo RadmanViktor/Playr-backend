@@ -1,13 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Playr.Application.Comments;
 using Playr.Application.Common;
+using Playr.Application.Notifications;
 using Playr.Domain.Comments;
+using Playr.Domain.Notifications;
 using Playr.Domain.Posts;
 using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Comments;
 
-public sealed class CommentService(PlayrDbContext dbContext) : ICommentService
+public sealed class CommentService(PlayrDbContext dbContext, INotificationFeedService notificationFeedService) : ICommentService
 {
     private const int MaxTextLength = 500;
 
@@ -33,6 +35,28 @@ public sealed class CommentService(PlayrDbContext dbContext) : ICommentService
         };
         dbContext.PostComments.Add(comment);
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (command.MentionedUserIds is { Count: > 0 })
+        {
+            var validMentionedIds = await notificationFeedService.CreateMentionNotificationsAsync(
+                authorId, command.MentionedUserIds, NotificationType.CommentMention, postId, comment.Id, cancellationToken);
+
+            if (validMentionedIds.Count > 0)
+            {
+                var mentionedProfiles = await dbContext.UserProfiles
+                    .AsNoTracking()
+                    .Where(p => validMentionedIds.Contains(p.UserId))
+                    .ToListAsync(cancellationToken);
+                dbContext.CommentMentions.AddRange(mentionedProfiles.Select(p => new CommentMention
+                {
+                    Id = Guid.NewGuid(),
+                    CommentId = comment.Id,
+                    MentionedUserId = p.UserId,
+                    UsernameAtTimeOfPosting = p.Username,
+                }));
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+        }
 
         var dtos = await MapToCommentDtoAsync([comment], authorId, cancellationToken);
         return dtos[0];
@@ -181,6 +205,25 @@ public sealed class CommentService(PlayrDbContext dbContext) : ICommentService
             .GroupBy(r => r.CommentId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
+        var mentions = await dbContext.CommentMentions
+            .AsNoTracking()
+            .Where(m => commentIds.Contains(m.CommentId))
+            .ToListAsync(cancellationToken);
+        var mentionedUserIds = mentions.Select(m => m.MentionedUserId).Distinct().ToList();
+        var mentionedProfileMap = (await dbContext.UserProfiles
+            .AsNoTracking()
+            .Where(p => mentionedUserIds.Contains(p.UserId))
+            .ToListAsync(cancellationToken))
+            .ToDictionary(p => p.UserId);
+        var mentionsByComment = mentions
+            .GroupBy(m => m.CommentId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<MentionDto>)g
+                .Select(m => new MentionDto(
+                    m.MentionedUserId,
+                    m.UsernameAtTimeOfPosting,
+                    mentionedProfileMap.TryGetValue(m.MentionedUserId, out var p) ? p.DisplayName : m.UsernameAtTimeOfPosting))
+                .ToList());
+
         return comments.Select(comment =>
         {
             var profile = profileMap[comment.AuthorId];
@@ -200,7 +243,8 @@ public sealed class CommentService(PlayrDbContext dbContext) : ICommentService
                 comment.TextContent,
                 comment.CreatedAt,
                 comment.UpdatedAt,
-                new CommentReactionSummary(counts, currentUserReaction));
+                new CommentReactionSummary(counts, currentUserReaction),
+                mentionsByComment.GetValueOrDefault(comment.Id, []));
         }).ToList();
     }
 }

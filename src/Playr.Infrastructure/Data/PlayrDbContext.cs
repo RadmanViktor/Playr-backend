@@ -8,6 +8,7 @@ using Playr.Domain.Friendships;
 using Playr.Domain.Games;
 using Playr.Domain.Identity;
 using Playr.Domain.Invitations;
+using Playr.Domain.Notifications;
 using Playr.Domain.Posts;
 using Playr.Domain.Profiles;
 using Playr.Domain.Steam;
@@ -25,6 +26,9 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<PostLike> PostLikes => Set<PostLike>();
     public DbSet<PostComment> PostComments => Set<PostComment>();
     public DbSet<CommentReaction> CommentReactions => Set<CommentReaction>();
+    public DbSet<PostMention> PostMentions => Set<PostMention>();
+    public DbSet<CommentMention> CommentMentions => Set<CommentMention>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
@@ -91,6 +95,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             game.Property(g => g.Name).HasMaxLength(128).IsRequired();
             game.Property(g => g.CoverImageUrl).HasMaxLength(500);
             game.Property(g => g.Genre).HasMaxLength(64);
+            game.HasIndex(g => g.RawgId).IsUnique().HasFilter("\"RawgId\" IS NOT NULL");
             game.HasData(
                 new Game { Id = new Guid("00000001-0000-0000-0000-000000000001"), Name = "Apex Legends" },
                 new Game { Id = new Guid("00000001-0000-0000-0000-000000000002"), Name = "Call of Duty" },
@@ -234,6 +239,61 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             }
         });
 
+        builder.Entity<PostMention>(mention =>
+        {
+            mention.HasKey(m => m.Id);
+            mention.Property(m => m.UsernameAtTimeOfPosting).HasMaxLength(32).IsRequired();
+            mention.HasOne(m => m.Post)
+                .WithMany()
+                .HasForeignKey(m => m.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+            mention.HasOne(m => m.MentionedUser)
+                .WithMany()
+                .HasForeignKey(m => m.MentionedUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            mention.HasIndex(m => m.PostId);
+        });
+
+        builder.Entity<CommentMention>(mention =>
+        {
+            mention.HasKey(m => m.Id);
+            mention.Property(m => m.UsernameAtTimeOfPosting).HasMaxLength(32).IsRequired();
+            mention.HasOne(m => m.Comment)
+                .WithMany()
+                .HasForeignKey(m => m.CommentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            mention.HasOne(m => m.MentionedUser)
+                .WithMany()
+                .HasForeignKey(m => m.MentionedUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            mention.HasIndex(m => m.CommentId);
+        });
+
+        builder.Entity<Notification>(notification =>
+        {
+            notification.HasKey(n => n.Id);
+            notification.Property(n => n.Type)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .IsRequired();
+            notification.HasOne(n => n.Recipient)
+                .WithMany()
+                .HasForeignKey(n => n.RecipientUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            notification.HasOne(n => n.Actor)
+                .WithMany()
+                .HasForeignKey(n => n.ActorUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            notification.HasIndex(n => new { n.RecipientUserId, n.CreatedAt });
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                notification.Property(n => n.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+            }
+        });
+
         builder.Entity<Invitation>(invitation =>
         {
             invitation.HasKey(i => i.Id);
@@ -366,6 +426,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
         {
             message.HasKey(m => m.Id);
             message.Property(m => m.Body).HasMaxLength(1000).IsRequired();
+            message.Property(m => m.MediaUrl).HasMaxLength(500);
             message.HasOne(m => m.Conversation)
                 .WithMany(c => c.Messages)
                 .HasForeignKey(m => m.ConversationId)

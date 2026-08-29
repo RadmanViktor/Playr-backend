@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Playr.Api.Extensions;
 using Playr.Api.Models.Comments;
+using Playr.Api.Models.Common;
 using Playr.Application.Comments;
 using Playr.Domain.Comments;
 
@@ -23,7 +24,7 @@ public sealed class CommentsController(ICommentService commentService) : Control
 
         try
         {
-            var comment = await commentService.CreateAsync(postId, userId, new CreateCommentCommand(request.TextContent), cancellationToken);
+            var comment = await commentService.CreateAsync(postId, userId, new CreateCommentCommand(request.TextContent, request.MentionedUserIds), cancellationToken);
             return CreatedAtAction(nameof(GetPaged), new { postId }, ToResponse(comment));
         }
         catch (InvalidOperationException ex) when (ex.Message == "Post was not found.")
@@ -154,7 +155,8 @@ public sealed class CommentsController(ICommentService commentService) : Control
         comment.TextContent,
         comment.CreatedAt,
         comment.UpdatedAt,
-        ToResponse(comment.Reactions));
+        ToResponse(comment.Reactions),
+        comment.Mentions.Select(m => new MentionResponse(m.UserId, m.Username, m.DisplayName)).ToList());
 
     private static CommentReactionResponse ToResponse(CommentReactionSummary summary) => new(
         new ReactionCountsResponse(summary.Counts.Like, summary.Counts.Haha, summary.Counts.Wow, summary.Counts.Sad, summary.Counts.Angry),

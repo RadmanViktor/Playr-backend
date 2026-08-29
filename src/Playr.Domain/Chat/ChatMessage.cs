@@ -10,6 +10,8 @@ public sealed class ChatMessage
     public Guid SenderUserId { get; set; }
     public ApplicationUser Sender { get; set; } = null!;
     public string Body { get; set; } = string.Empty;
+    public string? MediaUrl { get; set; }
+    public ChatMediaType? MediaType { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ReadAt { get; set; }
 }

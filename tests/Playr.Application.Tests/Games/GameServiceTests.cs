@@ -1,10 +1,13 @@
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Playr.Application.Games;
 using Playr.Domain.Games;
 using Playr.Infrastructure.Data;
 using Playr.Infrastructure.Games;
+using Playr.Infrastructure.Rawg;
 
 namespace Playr.Application.Tests.Games;
 
@@ -24,7 +27,11 @@ public sealed class GameServiceTests : IAsyncDisposable
         _dbContext = new PlayrDbContext(options);
         _dbContext.Database.EnsureCreated();
         // EnsureCreated seeds 8 games via HasData; no additional rows needed
-        _service = new GameService(_dbContext);
+        var rawgApiClient = new RawgApiClient(
+            new HttpClient { BaseAddress = new Uri("https://api.rawg.io") },
+            Options.Create(new RawgOptions()),
+            NullLogger<RawgApiClient>.Instance);
+        _service = new GameService(_dbContext, rawgApiClient);
     }
 
     [Fact]
@@ -49,6 +56,37 @@ public sealed class GameServiceTests : IAsyncDisposable
             g.Id.Should().NotBeEmpty();
             g.Name.Should().NotBeNullOrWhiteSpace();
         });
+    }
+
+    [Fact]
+    public async Task CreateFromExternalAsync_creates_new_game_when_no_existing_match()
+    {
+        var (game, created) = await _service.CreateFromExternalAsync(
+            new CreateGameCommand(RawgId: 12345, Name: "New Game", CoverImageUrl: "https://example.com/cover.jpg", Genre: "Action"),
+            CancellationToken.None);
+
+        created.Should().BeTrue();
+        game.Name.Should().Be("New Game");
+        game.CoverImageUrl.Should().Be("https://example.com/cover.jpg");
+        game.Genre.Should().Be("Action");
+    }
+
+    [Fact]
+    public async Task CreateFromExternalAsync_returns_existing_game_when_rawg_id_already_exists()
+    {
+        var first = await _service.CreateFromExternalAsync(
+            new CreateGameCommand(RawgId: 54321, Name: "Duplicate Game", CoverImageUrl: null, Genre: null),
+            CancellationToken.None);
+
+        var second = await _service.CreateFromExternalAsync(
+            new CreateGameCommand(RawgId: 54321, Name: "Duplicate Game", CoverImageUrl: null, Genre: null),
+            CancellationToken.None);
+
+        second.Created.Should().BeFalse();
+        second.Game.Id.Should().Be(first.Game.Id);
+
+        var allGames = await _service.GetAllAsync(CancellationToken.None);
+        allGames.Count(g => g.Name == "Duplicate Game").Should().Be(1);
     }
 
     public async ValueTask DisposeAsync()

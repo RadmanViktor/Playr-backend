@@ -1,12 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Playr.Application.Common;
+using Playr.Application.Notifications;
 using Playr.Application.Posts;
 using Playr.Application.Storage;
+using Playr.Domain.Notifications;
 using Playr.Domain.Posts;
 using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Posts;
 
-public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fileStorageService) : IPostService
+public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fileStorageService, INotificationFeedService notificationFeedService) : IPostService
 {
     private const int MaxTextLength = 1000;
     private const int FeedSize = 50;
@@ -60,7 +63,45 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
         dbContext.Posts.Add(post);
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        if (command.MentionedUserIds is { Count: > 0 })
+        {
+            var validMentionedIds = await notificationFeedService.CreateMentionNotificationsAsync(
+                authorId, command.MentionedUserIds, NotificationType.PostMention, post.Id, null, cancellationToken);
+
+            if (validMentionedIds.Count > 0)
+            {
+                var mentionedProfiles = await dbContext.UserProfiles
+                    .AsNoTracking()
+                    .Where(p => validMentionedIds.Contains(p.UserId))
+                    .ToListAsync(cancellationToken);
+                dbContext.PostMentions.AddRange(mentionedProfiles.Select(p => new PostMention
+                {
+                    Id = Guid.NewGuid(),
+                    PostId = post.Id,
+                    MentionedUserId = p.UserId,
+                    UsernameAtTimeOfPosting = p.Username,
+                }));
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+        }
+
         var dtos = await MapToPostDtoAsync([post], authorId, cancellationToken);
+        return dtos[0];
+    }
+
+    public async Task<PostDto?> GetByIdAsync(Guid postId, Guid? currentUserId, CancellationToken cancellationToken)
+    {
+        var post = await dbContext.Posts
+            .AsNoTracking()
+            .Include(p => p.Media)
+            .FirstOrDefaultAsync(p => p.Id == postId, cancellationToken);
+
+        if (post is null)
+        {
+            return null;
+        }
+
+        var dtos = await MapToPostDtoAsync([post], currentUserId, cancellationToken);
         return dtos[0];
     }
 
@@ -251,6 +292,25 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
             .ToListAsync(cancellationToken);
         var commentCountMap = commentCounts.ToDictionary(x => x.PostId, x => x.Count);
 
+        var mentions = await dbContext.PostMentions
+            .AsNoTracking()
+            .Where(m => postIds.Contains(m.PostId))
+            .ToListAsync(cancellationToken);
+        var mentionedUserIds = mentions.Select(m => m.MentionedUserId).Distinct().ToList();
+        var mentionedProfileMap = (await dbContext.UserProfiles
+            .AsNoTracking()
+            .Where(p => mentionedUserIds.Contains(p.UserId))
+            .ToListAsync(cancellationToken))
+            .ToDictionary(p => p.UserId);
+        var mentionsByPost = mentions
+            .GroupBy(m => m.PostId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<MentionDto>)g
+                .Select(m => new MentionDto(
+                    m.MentionedUserId,
+                    m.UsernameAtTimeOfPosting,
+                    mentionedProfileMap.TryGetValue(m.MentionedUserId, out var p) ? p.DisplayName : m.UsernameAtTimeOfPosting))
+                .ToList());
+
         return posts.Select(post =>
         {
             var profile = profileMap[post.AuthorId];
@@ -273,7 +333,8 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
                 post.CreatedAt,
                 likeCountMap.GetValueOrDefault(post.Id, 0),
                 likedByCurrentUser.Contains(post.Id),
-                commentCountMap.GetValueOrDefault(post.Id, 0));
+                commentCountMap.GetValueOrDefault(post.Id, 0),
+                mentionsByPost.GetValueOrDefault(post.Id, []));
         }).ToList();
     }
 }

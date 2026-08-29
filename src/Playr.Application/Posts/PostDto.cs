@@ -1,5 +1,7 @@
 namespace Playr.Application.Posts;
 
+using Playr.Application.Common;
+
 public sealed record PostMediaDto(
     Guid Id,
     string Url,
@@ -21,4 +23,5 @@ public sealed record PostDto(
     DateTimeOffset CreatedAt,
     int LikesCount,
     bool LikedByCurrentUser,
-    int CommentsCount);
+    int CommentsCount,
+    IReadOnlyList<MentionDto> Mentions);

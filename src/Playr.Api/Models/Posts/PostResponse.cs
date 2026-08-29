@@ -1,5 +1,7 @@
 namespace Playr.Api.Models.Posts;
 
+using Playr.Api.Models.Common;
+
 public sealed record PostMediaResponse(
     Guid Id,
     string Url,
@@ -21,4 +23,5 @@ public sealed record PostResponse(
     DateTimeOffset CreatedAt,
     int LikesCount,
     bool LikedByCurrentUser,
-    int CommentsCount);
+    int CommentsCount,
+    IReadOnlyList<MentionResponse> Mentions);

@@ -1,3 +1,5 @@
+using Playr.Api.Models.Common;
+
 namespace Playr.Api.Models.Comments;
 
 public sealed record CommentResponse(
@@ -10,4 +12,5 @@ public sealed record CommentResponse(
     string TextContent,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
-    CommentReactionResponse Reactions);
+    CommentReactionResponse Reactions,
+    IReadOnlyList<MentionResponse> Mentions);
