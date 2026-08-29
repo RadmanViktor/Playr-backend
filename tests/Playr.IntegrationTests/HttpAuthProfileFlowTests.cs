@@ -123,6 +123,11 @@ public sealed class PlayrWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Audience", "PLAYR_TESTS");
         builder.UseSetting("Jwt:SigningKey", "test-signing-key-with-at-least-32-chars");
         builder.UseSetting("ConnectionStrings:DefaultConnection", "Host=unused;Database=unused;Username=unused;Password=unused");
+        // These tests exercise the full register -> confirmation-email -> confirm -> login
+        // flow. The host environment is Development (see TestHostEnvironment), which by
+        // default auto-confirms accounts on register - override that here so the tests keep
+        // covering the real production flow instead of skipping it.
+        builder.UseSetting("Auth:AutoConfirmEmailOnRegister", "false");
 
         builder.ConfigureServices(services =>
         {

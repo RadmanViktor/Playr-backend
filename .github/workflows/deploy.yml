@@ -22,23 +22,6 @@ env:
   DEPLOY_USER: viktor
   SITE_URL: https://www.playr.viktorradman.se
 
-  # Non-secret configuration. Secrets are injected separately in the deploy job.
-  ASPNETCORE_URLS_VALUE: http://127.0.0.1:5258
-  DB_HOST: localhost
-  DB_PORT: '5432'
-  DB_NAME: playr
-  DB_USER: playr
-  JWT_ISSUER: PLAYR
-  JWT_AUDIENCE: PLAYR
-  JWT_EXPIRATION_MINUTES: '60'
-  STEAM_SYNC_INTERVAL_HOURS: '12'
-  FILE_STORAGE_ROOT: /home/viktor/apps/playr-uploads
-  FRONTEND_BASE_URL: https://www.playr.viktorradman.se
-  SMTP_HOST: smtp-relay.brevo.com
-  SMTP_PORT: '587'
-  SMTP_FROM_ADDRESS: no-reply@playr.viktorradman.se
-  SMTP_FROM_NAME: PLAYR
-
 jobs:
   verify:
     name: Build and test
@@ -69,20 +52,40 @@ jobs:
       - name: Check required secrets are present
         # Writing an env file from an empty secret would silently break production
         # (an empty Jwt__SigningKey fails startup validation, an empty database
-        # password fails migrations). Fail loudly here instead.
+        # connection string fails migrations). Fail loudly here instead.
+        #
+        # Secrets are named after the .NET configuration keys they populate
+        # (double underscore = nested config section), so this list must be
+        # kept in sync with the "Build environment file" step below.
         env:
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
-          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
-          RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }}
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_KEY: ${{ secrets.SMTP_KEY }}
+          ASPNETCORE_ENVIRONMENT: ${{ secrets.ASPNETCORE_ENVIRONMENT }}
+          ASPNETCORE_URLS: ${{ secrets.ASPNETCORE_URLS }}
+          CONNECTIONSTRINGS__DEFAULTCONNECTION: ${{ secrets.CONNECTIONSTRINGS__DEFAULTCONNECTION }}
+          EMAIL__FROMADDRESS: ${{ secrets.EMAIL__FROMADDRESS }}
+          EMAIL__FROMNAME: ${{ secrets.EMAIL__FROMNAME }}
+          EMAIL__HOST: ${{ secrets.EMAIL__HOST }}
+          EMAIL__PASSWORD: ${{ secrets.EMAIL__PASSWORD }}
+          EMAIL__PORT: ${{ secrets.EMAIL__PORT }}
+          EMAIL__USERNAME: ${{ secrets.EMAIL__USERNAME }}
+          EMAIL__USESTARTTLS: ${{ secrets.EMAIL__USESTARTTLS }}
+          FILESTORAGE__ROOTPATH: ${{ secrets.FILESTORAGE__ROOTPATH }}
+          FRONTEND__BASEURL: ${{ secrets.FRONTEND__BASEURL }}
+          JWT__AUDIENCE: ${{ secrets.JWT__AUDIENCE }}
+          JWT__EXPIRATIONMINUTES: ${{ secrets.JWT__EXPIRATIONMINUTES }}
+          JWT__ISSUER: ${{ secrets.JWT__ISSUER }}
+          JWT__SIGNINGKEY: ${{ secrets.JWT__SIGNINGKEY }}
+          RAWG__APIKEY: ${{ secrets.RAWG__APIKEY }}
+          STEAM__APIKEY: ${{ secrets.STEAM__APIKEY }}
+          STEAM__SYNCINTERVALHOURS: ${{ secrets.STEAM__SYNCINTERVALHOURS }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           missing=''
-          for name in DB_PASSWORD JWT_SIGNING_KEY STEAM_API_KEY RAWG_API_KEY SMTP_USERNAME SMTP_KEY SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
+          for name in ASPNETCORE_ENVIRONMENT ASPNETCORE_URLS CONNECTIONSTRINGS__DEFAULTCONNECTION \
+            EMAIL__FROMADDRESS EMAIL__FROMNAME EMAIL__HOST EMAIL__PASSWORD EMAIL__PORT EMAIL__USERNAME EMAIL__USESTARTTLS \
+            FILESTORAGE__ROOTPATH FRONTEND__BASEURL JWT__AUDIENCE JWT__EXPIRATIONMINUTES JWT__ISSUER JWT__SIGNINGKEY \
+            RAWG__APIKEY STEAM__APIKEY STEAM__SYNCINTERVALHOURS SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
             if [ -z "${!name:-}" ]; then
               missing="$missing $name"
             fi
@@ -106,37 +109,52 @@ jobs:
       - name: Build environment file
         # printf with quoted variables, not a heredoc: secret values may contain
         # '$', backticks or backslashes, which an unquoted heredoc would expand.
+        #
+        # Each secret is named exactly after the config key it populates, so it
+        # can be written straight into the env file as KEY=value.
         env:
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
-          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
-          RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }}
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_KEY: ${{ secrets.SMTP_KEY }}
+          ASPNETCORE_ENVIRONMENT: ${{ secrets.ASPNETCORE_ENVIRONMENT }}
+          ASPNETCORE_URLS: ${{ secrets.ASPNETCORE_URLS }}
+          CONNECTIONSTRINGS__DEFAULTCONNECTION: ${{ secrets.CONNECTIONSTRINGS__DEFAULTCONNECTION }}
+          EMAIL__FROMADDRESS: ${{ secrets.EMAIL__FROMADDRESS }}
+          EMAIL__FROMNAME: ${{ secrets.EMAIL__FROMNAME }}
+          EMAIL__HOST: ${{ secrets.EMAIL__HOST }}
+          EMAIL__PASSWORD: ${{ secrets.EMAIL__PASSWORD }}
+          EMAIL__PORT: ${{ secrets.EMAIL__PORT }}
+          EMAIL__USERNAME: ${{ secrets.EMAIL__USERNAME }}
+          EMAIL__USESTARTTLS: ${{ secrets.EMAIL__USESTARTTLS }}
+          FILESTORAGE__ROOTPATH: ${{ secrets.FILESTORAGE__ROOTPATH }}
+          FRONTEND__BASEURL: ${{ secrets.FRONTEND__BASEURL }}
+          JWT__AUDIENCE: ${{ secrets.JWT__AUDIENCE }}
+          JWT__EXPIRATIONMINUTES: ${{ secrets.JWT__EXPIRATIONMINUTES }}
+          JWT__ISSUER: ${{ secrets.JWT__ISSUER }}
+          JWT__SIGNINGKEY: ${{ secrets.JWT__SIGNINGKEY }}
+          RAWG__APIKEY: ${{ secrets.RAWG__APIKEY }}
+          STEAM__APIKEY: ${{ secrets.STEAM__APIKEY }}
+          STEAM__SYNCINTERVALHOURS: ${{ secrets.STEAM__SYNCINTERVALHOURS }}
         run: |
           set -euo pipefail
           umask 077
           {
-            printf 'ASPNETCORE_ENVIRONMENT=Production\n'
-            printf 'ASPNETCORE_URLS=%s\n' "$ASPNETCORE_URLS_VALUE"
-            printf 'ConnectionStrings__DefaultConnection=Host=%s;Port=%s;Database=%s;Username=%s;Password=%s\n' \
-              "$DB_HOST" "$DB_PORT" "$DB_NAME" "$DB_USER" "$DB_PASSWORD"
-            printf 'Jwt__Issuer=%s\n' "$JWT_ISSUER"
-            printf 'Jwt__Audience=%s\n' "$JWT_AUDIENCE"
-            printf 'Jwt__SigningKey=%s\n' "$JWT_SIGNING_KEY"
-            printf 'Jwt__ExpirationMinutes=%s\n' "$JWT_EXPIRATION_MINUTES"
-            printf 'Steam__ApiKey=%s\n' "$STEAM_API_KEY"
-            printf 'Steam__SyncIntervalHours=%s\n' "$STEAM_SYNC_INTERVAL_HOURS"
-            printf 'Rawg__ApiKey=%s\n' "$RAWG_API_KEY"
-            printf 'FileStorage__RootPath=%s\n' "$FILE_STORAGE_ROOT"
-            printf 'Frontend__BaseUrl=%s\n' "$FRONTEND_BASE_URL"
-            printf 'Email__Host=%s\n' "$SMTP_HOST"
-            printf 'Email__Port=%s\n' "$SMTP_PORT"
-            printf 'Email__Username=%s\n' "$SMTP_USERNAME"
-            printf 'Email__Password=%s\n' "$SMTP_KEY"
-            printf 'Email__FromAddress=%s\n' "$SMTP_FROM_ADDRESS"
-            printf 'Email__FromName=%s\n' "$SMTP_FROM_NAME"
-            printf 'Email__UseStartTls=true\n'
+            printf 'ASPNETCORE_ENVIRONMENT=%s\n' "$ASPNETCORE_ENVIRONMENT"
+            printf 'ASPNETCORE_URLS=%s\n' "$ASPNETCORE_URLS"
+            printf 'ConnectionStrings__DefaultConnection=%s\n' "$CONNECTIONSTRINGS__DEFAULTCONNECTION"
+            printf 'Jwt__Issuer=%s\n' "$JWT__ISSUER"
+            printf 'Jwt__Audience=%s\n' "$JWT__AUDIENCE"
+            printf 'Jwt__SigningKey=%s\n' "$JWT__SIGNINGKEY"
+            printf 'Jwt__ExpirationMinutes=%s\n' "$JWT__EXPIRATIONMINUTES"
+            printf 'Steam__ApiKey=%s\n' "$STEAM__APIKEY"
+            printf 'Steam__SyncIntervalHours=%s\n' "$STEAM__SYNCINTERVALHOURS"
+            printf 'Rawg__ApiKey=%s\n' "$RAWG__APIKEY"
+            printf 'FileStorage__RootPath=%s\n' "$FILESTORAGE__ROOTPATH"
+            printf 'Frontend__BaseUrl=%s\n' "$FRONTEND__BASEURL"
+            printf 'Email__Host=%s\n' "$EMAIL__HOST"
+            printf 'Email__Port=%s\n' "$EMAIL__PORT"
+            printf 'Email__Username=%s\n' "$EMAIL__USERNAME"
+            printf 'Email__Password=%s\n' "$EMAIL__PASSWORD"
+            printf 'Email__FromAddress=%s\n' "$EMAIL__FROMADDRESS"
+            printf 'Email__FromName=%s\n' "$EMAIL__FROMNAME"
+            printf 'Email__UseStartTls=%s\n' "$EMAIL__USESTARTTLS"
           } > playr-api.env
 
           # Guard against a value containing a newline, which would corrupt every
