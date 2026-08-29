@@ -123,6 +123,8 @@ public class ContractTests
             "UpdateCurrentUserAsync",
             "UpdateStatusAsync",
             "UpdateAvatarAsync",
+            "SetOfflineAsync",
+            "SetOnlineIfOfflineAsync",
             "SearchAsync",
             "GetLookingForGamePlayersAsync");
     }

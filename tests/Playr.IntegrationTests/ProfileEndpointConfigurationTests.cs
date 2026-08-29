@@ -133,6 +133,12 @@ public class ProfileEndpointConfigurationTests
         public Task<ProfileDto> UpdateAvatarAsync(Guid userId, string baseUrl, Playr.Application.Common.FileUploadInput avatar, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
 
+        public Task SetOfflineAsync(Guid userId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
+
+        public Task SetOnlineIfOfflineAsync(Guid userId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
+
         public Task<IReadOnlyList<ProfileSearchResult>> SearchAsync(string query, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
 

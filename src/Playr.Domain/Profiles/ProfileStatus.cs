@@ -5,5 +5,6 @@ public enum ProfileStatus
     Online,
     LookingForGame,
     Busy,
+    Inactive,
     Offline,
 }

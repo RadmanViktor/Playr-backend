@@ -168,6 +168,37 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         return ToDto(reloaded);
     }
 
+    public async Task SetOfflineAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
+        if (profile is null || profile.Status == ProfileStatus.Offline)
+        {
+            return;
+        }
+
+        profile.Status = ProfileStatus.Offline;
+        profile.LookingForGameId = null;
+        profile.LookingForPlayStyle = null;
+        profile.LookingForGameNote = null;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task SetOnlineIfOfflineAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
+        if (profile is null || profile.Status != ProfileStatus.Offline)
+        {
+            return;
+        }
+
+        profile.Status = ProfileStatus.Online;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<ProfileDto> UpdateAvatarAsync(Guid userId, string baseUrl, FileUploadInput avatar, CancellationToken cancellationToken)
     {
         var extension = ImageUploadValidator.Validate(avatar);

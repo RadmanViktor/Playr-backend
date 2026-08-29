@@ -296,6 +296,60 @@ public sealed class ProfileServiceTests
         result.LookingForGameNote.Should().BeNull();
     }
 
+    [Fact]
+    public async Task SetOfflineAsync_sets_status_to_offline_and_clears_looking_for_game()
+    {
+        var (service, dbContext, userId, gameId) = await CreateServiceWithSeededProfileAndGameAsync();
+        await service.UpdateStatusAsync(
+            userId,
+            new UpdateStatusCommand(ProfileStatus.LookingForGame, gameId, PlayStyle.Chill, "need a 4th"),
+            CancellationToken.None);
+
+        await service.SetOfflineAsync(userId, CancellationToken.None);
+
+        var profile = await dbContext.UserProfiles.AsNoTracking().FirstAsync(p => p.UserId == userId);
+        profile.Status.Should().Be(ProfileStatus.Offline);
+        profile.LookingForGameId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SetOfflineAsync_is_a_no_op_when_already_offline()
+    {
+        var (service, dbContext, userId, _) = await CreateServiceWithSeededProfileAndGameAsync();
+        await service.SetOfflineAsync(userId, CancellationToken.None);
+        var updatedAtAfterFirstCall = (await dbContext.UserProfiles.AsNoTracking().FirstAsync(p => p.UserId == userId)).UpdatedAt;
+
+        await service.SetOfflineAsync(userId, CancellationToken.None);
+
+        var profile = await dbContext.UserProfiles.AsNoTracking().FirstAsync(p => p.UserId == userId);
+        profile.Status.Should().Be(ProfileStatus.Offline);
+        profile.UpdatedAt.Should().Be(updatedAtAfterFirstCall);
+    }
+
+    [Fact]
+    public async Task SetOnlineIfOfflineAsync_sets_status_to_online_when_offline()
+    {
+        var (service, dbContext, userId, _) = await CreateServiceWithSeededProfileAndGameAsync();
+        await service.SetOfflineAsync(userId, CancellationToken.None);
+
+        await service.SetOnlineIfOfflineAsync(userId, CancellationToken.None);
+
+        var profile = await dbContext.UserProfiles.AsNoTracking().FirstAsync(p => p.UserId == userId);
+        profile.Status.Should().Be(ProfileStatus.Online);
+    }
+
+    [Fact]
+    public async Task SetOnlineIfOfflineAsync_does_not_change_status_when_not_offline()
+    {
+        var (service, dbContext, userId, _) = await CreateServiceWithSeededProfileAndGameAsync();
+        await service.UpdateStatusAsync(userId, new UpdateStatusCommand(ProfileStatus.Busy, null, null, null), CancellationToken.None);
+
+        await service.SetOnlineIfOfflineAsync(userId, CancellationToken.None);
+
+        var profile = await dbContext.UserProfiles.AsNoTracking().FirstAsync(p => p.UserId == userId);
+        profile.Status.Should().Be(ProfileStatus.Busy);
+    }
+
     private static async Task<(ProfileService Service, PlayrDbContext DbContext, Guid UserId, Guid GameId)> CreateServiceWithSeededProfileAndGameAsync()
     {
         var connection = new SqliteConnection("Data Source=:memory:");
