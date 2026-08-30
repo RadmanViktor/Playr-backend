@@ -12,6 +12,7 @@ public sealed class Post
     public Game Game { get; set; } = null!;
     public string TextContent { get; set; } = string.Empty;
     public PostMood? Mood { get; set; }
+    public PostScope Scope { get; set; } = PostScope.Feed;
     public List<PostMedia> Media { get; set; } = [];
     public DateTimeOffset CreatedAt { get; set; }
 }

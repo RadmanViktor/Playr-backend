@@ -43,8 +43,8 @@ public sealed class PostsByUsernameTests : IAsyncDisposable
         });
         _dbContext.Games.Add(new Game { Id = _gameId, Name = "Hollow Knight" });
         _dbContext.Posts.AddRange(
-            new Post { Id = Guid.NewGuid(), AuthorId = _userId, GameId = _gameId, TextContent = "Post A", CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-2) },
-            new Post { Id = Guid.NewGuid(), AuthorId = _userId, GameId = _gameId, TextContent = "Post B", CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-1) }
+            new Post { Id = Guid.NewGuid(), AuthorId = _userId, GameId = _gameId, TextContent = "Post A", Scope = PostScope.Profile, CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-2) },
+            new Post { Id = Guid.NewGuid(), AuthorId = _userId, GameId = _gameId, TextContent = "Post B", Scope = PostScope.Profile, CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-1) }
         );
         _dbContext.SaveChanges();
         _service = new PostService(_dbContext, new NoOpFileStorageService(), new Playr.Application.Tests.Notifications.NoOpNotificationFeedService());

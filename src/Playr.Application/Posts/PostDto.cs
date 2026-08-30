@@ -19,6 +19,7 @@ public sealed record PostDto(
     string? GameCoverImageUrl,
     string TextContent,
     string? Mood,
+    string Scope,
     IReadOnlyList<PostMediaDto> Media,
     DateTimeOffset CreatedAt,
     int LikesCount,

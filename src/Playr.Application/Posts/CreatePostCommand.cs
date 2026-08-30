@@ -5,4 +5,5 @@ public sealed record CreatePostCommand(
     string TextContent,
     string? Mood,
     IReadOnlyList<PostMediaInput> Media,
-    IReadOnlyList<Guid>? MentionedUserIds = null);
+    IReadOnlyList<Guid>? MentionedUserIds = null,
+    string? Scope = null);

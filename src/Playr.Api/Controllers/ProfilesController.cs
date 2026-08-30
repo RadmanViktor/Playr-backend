@@ -110,7 +110,7 @@ public sealed class ProfilesController(
         var posts = await postService.GetByUsernameAsync(username, currentUserId, cancellationToken);
         return Ok(posts.Select(p => new PostResponse(
             p.Id, p.AuthorId, p.AuthorUsername, p.AuthorDisplayName, p.AuthorAvatarUrl,
-            p.GameId, p.GameName, p.GameCoverImageUrl, p.TextContent, p.Mood,
+            p.GameId, p.GameName, p.GameCoverImageUrl, p.TextContent, p.Mood, p.Scope,
             p.Media.Select(m => new PostMediaResponse(m.Id, m.Url, m.MediaType, m.SortOrder)).ToList(),
             p.CreatedAt, p.LikesCount, p.LikedByCurrentUser, p.CommentsCount,
             p.Mentions.Select(m => new MentionResponse(m.UserId, m.Username, m.DisplayName)).ToList()

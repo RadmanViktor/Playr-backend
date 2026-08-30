@@ -161,6 +161,11 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             post.Property(p => p.Mood)
                 .HasConversion<string>()
                 .HasMaxLength(16);
+            post.Property(p => p.Scope)
+                .HasConversion<string>()
+                .HasMaxLength(16)
+                .HasDefaultValue(PostScope.Feed)
+                .IsRequired();
             post.HasOne(p => p.Author)
                 .WithMany()
                 .HasForeignKey(p => p.AuthorId)

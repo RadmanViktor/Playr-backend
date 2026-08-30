@@ -35,6 +35,14 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
         if (!gameExists)
             throw new InvalidOperationException("Game was not found.");
 
+        var scope = PostScope.Feed;
+        if (command.Scope is not null)
+        {
+            if (!Enum.TryParse<PostScope>(command.Scope, ignoreCase: true, out var parsedScope))
+                throw new InvalidOperationException("Invalid scope value.");
+            scope = parsedScope;
+        }
+
         var validatedMedia = PostMediaValidator.ValidateMany(command.Media);
         var mediaEntities = new List<PostMedia>();
         var sortOrder = 0;
@@ -57,6 +65,7 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
             GameId = command.GameId,
             TextContent = text,
             Mood = mood,
+            Scope = scope,
             Media = mediaEntities,
             CreatedAt = DateTimeOffset.UtcNow,
         };
@@ -110,6 +119,7 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
         var feed = await dbContext.Posts
             .AsNoTracking()
             .Include(p => p.Media)
+            .Where(p => p.Scope == PostScope.Feed)
             .OrderByDescending(p => p.CreatedAt)
             .Take(FeedSize)
             .ToListAsync(cancellationToken);
@@ -213,7 +223,7 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
         var posts = await dbContext.Posts
             .AsNoTracking()
             .Include(p => p.Media)
-            .Where(p => p.AuthorId == profile.UserId)
+            .Where(p => p.AuthorId == profile.UserId && p.Scope == PostScope.Profile)
             .OrderByDescending(p => p.CreatedAt)
             .Take(FeedSize)
             .ToListAsync(cancellationToken);
@@ -326,6 +336,7 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
                 game.CoverImageUrl,
                 post.TextContent,
                 post.Mood?.ToString(),
+                post.Scope.ToString(),
                 post.Media
                     .OrderBy(m => m.SortOrder)
                     .Select(m => new PostMediaDto(m.Id, m.Url, m.MediaType.ToString(), m.SortOrder))

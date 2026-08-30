@@ -21,7 +21,7 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         try
         {
             var post = await postService.CreateAsync(userId,
-                new CreatePostCommand(request.GameId, request.TextContent, request.Mood, ToMediaInputs(request.Media), request.MentionedUserIds),
+                new CreatePostCommand(request.GameId, request.TextContent, request.Mood, ToMediaInputs(request.Media), request.MentionedUserIds, request.Scope),
                 cancellationToken);
             return CreatedAtAction(nameof(GetFeed), ToResponse(post));
         }
@@ -119,6 +119,7 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         post.GameCoverImageUrl,
         post.TextContent,
         post.Mood,
+        post.Scope,
         post.Media.Select(m => new PostMediaResponse(m.Id, m.Url, m.MediaType, m.SortOrder)).ToList(),
         post.CreatedAt,
         post.LikesCount,
