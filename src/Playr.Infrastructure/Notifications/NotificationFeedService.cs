@@ -152,4 +152,45 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
 
         return validIds;
     }
+
+    public async Task CreateFollowNotificationAsync(
+        Guid actorUserId,
+        Guid recipientUserId,
+        CancellationToken cancellationToken)
+    {
+        if (actorUserId == recipientUserId)
+        {
+            return;
+        }
+
+        var actorProfile = await dbContext.UserProfiles
+            .AsNoTracking()
+            .FirstAsync(p => p.UserId == actorUserId, cancellationToken);
+
+        var notification = new Notification
+        {
+            Id = Guid.NewGuid(),
+            RecipientUserId = recipientUserId,
+            ActorUserId = actorUserId,
+            Type = NotificationType.NewFollower,
+            PostId = null,
+            CommentId = null,
+            IsRead = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        dbContext.Notifications.Add(notification);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var dto = new NotificationDto(
+            notification.Id,
+            notification.Type.ToString(),
+            notification.IsRead,
+            notification.CreatedAt,
+            new NotificationActorDto(actorProfile.UserId, actorProfile.Username, actorProfile.DisplayName, actorProfile.AvatarUrl),
+            notification.RecipientUserId,
+            notification.PostId,
+            notification.CommentId);
+        await notifier.NotifyNotificationCreatedAsync(dto, cancellationToken);
+    }
 }

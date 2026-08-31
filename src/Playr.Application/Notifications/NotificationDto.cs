@@ -13,5 +13,5 @@ public sealed record NotificationDto(
     DateTimeOffset CreatedAt,
     NotificationActorDto Actor,
     Guid RecipientUserId,
-    Guid PostId,
+    Guid? PostId,
     Guid? CommentId);

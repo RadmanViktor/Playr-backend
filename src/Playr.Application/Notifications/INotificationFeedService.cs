@@ -21,4 +21,14 @@ public interface INotificationFeedService
         Guid postId,
         Guid? commentId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Creates a <see cref="Playr.Domain.Notifications.NotificationType.NewFollower"/> notification
+    /// for <paramref name="recipientUserId"/> and pushes it live via <see cref="INotificationNotifier"/>.
+    /// Unlike mention notifications, no friendship is required - anyone can follow anyone.
+    /// </summary>
+    Task CreateFollowNotificationAsync(
+        Guid actorUserId,
+        Guid recipientUserId,
+        CancellationToken cancellationToken);
 }

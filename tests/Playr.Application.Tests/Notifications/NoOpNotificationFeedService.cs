@@ -21,4 +21,10 @@ public sealed class NoOpNotificationFeedService : INotificationFeedService
         Guid? commentId,
         CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<Guid>>([]);
+
+    public Task CreateFollowNotificationAsync(
+        Guid actorUserId,
+        Guid recipientUserId,
+        CancellationToken cancellationToken) =>
+        Task.CompletedTask;
 }

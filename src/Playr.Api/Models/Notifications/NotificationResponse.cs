@@ -12,7 +12,7 @@ public sealed record NotificationResponse(
     bool IsRead,
     DateTimeOffset CreatedAt,
     NotificationActorResponse Actor,
-    Guid PostId,
+    Guid? PostId,
     Guid? CommentId);
 
 public sealed record NotificationFeedResponse(

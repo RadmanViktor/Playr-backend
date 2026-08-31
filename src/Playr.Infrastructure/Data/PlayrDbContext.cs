@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Playr.Domain.Chat;
 using Playr.Domain.Comments;
+using Playr.Domain.Follows;
 using Playr.Domain.Friendships;
 using Playr.Domain.Games;
 using Playr.Domain.Identity;
@@ -33,6 +34,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
+    public DbSet<UserFollow> UserFollows => Set<UserFollow>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
@@ -397,6 +399,28 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
             {
                 friendship.Property(f => f.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+            }
+        });
+
+        builder.Entity<UserFollow>(follow =>
+        {
+            follow.HasKey(f => f.Id);
+            follow.HasOne(f => f.Follower)
+                .WithMany()
+                .HasForeignKey(f => f.FollowerUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            follow.HasOne(f => f.Following)
+                .WithMany()
+                .HasForeignKey(f => f.FollowingUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            follow.HasIndex(f => new { f.FollowerUserId, f.FollowingUserId }).IsUnique();
+            follow.HasIndex(f => f.FollowingUserId);
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                follow.Property(f => f.CreatedAt)
                     .HasConversion(
                         v => v.ToUnixTimeMilliseconds(),
                         v => DateTimeOffset.FromUnixTimeMilliseconds(v));

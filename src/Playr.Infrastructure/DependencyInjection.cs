@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<Playr.Application.Invitations.IInvitationService, Playr.Infrastructure.Invitations.InvitationService>();
         services.AddScoped<Playr.Application.Friends.IFriendService, Playr.Infrastructure.Friends.FriendService>();
         services.AddScoped<Playr.Application.Friends.IFriendRequestService, Playr.Infrastructure.Friends.FriendRequestService>();
+        services.AddScoped<Playr.Application.Follows.IFollowService, Playr.Infrastructure.Follows.FollowService>();
         services.AddScoped<Playr.Application.Chat.IChatService, Playr.Infrastructure.Chat.ChatService>();
         services.AddScoped<Playr.Application.Notifications.INotificationPreferencesService, Playr.Infrastructure.Notifications.NotificationPreferencesService>();
         services.AddScoped<Playr.Application.Notifications.INotificationFeedService, Playr.Infrastructure.Notifications.NotificationFeedService>();

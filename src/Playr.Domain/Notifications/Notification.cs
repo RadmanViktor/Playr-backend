@@ -10,7 +10,7 @@ public sealed class Notification
     public Guid ActorUserId { get; set; }
     public ApplicationUser Actor { get; set; } = null!;
     public NotificationType Type { get; set; }
-    public Guid PostId { get; set; }
+    public Guid? PostId { get; set; }
     public Guid? CommentId { get; set; }
     public bool IsRead { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
