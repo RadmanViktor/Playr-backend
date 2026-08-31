@@ -267,7 +267,8 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
                 lastMessage?.CreatedAt,
                 conversation.CreatedAt,
                 conversation.UpdatedAt,
-                participants ?? []);
+                participants ?? [],
+                conversation.LfgGroupId);
         }).ToList();
     }
 

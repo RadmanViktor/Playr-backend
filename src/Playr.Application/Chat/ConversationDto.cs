@@ -11,4 +11,5 @@ public sealed record ConversationDto(
     DateTimeOffset? LastMessageAt,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    IReadOnlyList<ChatParticipantDto> Participants);
+    IReadOnlyList<ChatParticipantDto> Participants,
+    Guid? LfgGroupId);

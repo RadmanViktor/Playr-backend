@@ -9,4 +9,5 @@ public sealed record ConversationResponse(
     DateTimeOffset? LastMessageAt,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    IReadOnlyList<ChatParticipantResponse> Participants);
+    IReadOnlyList<ChatParticipantResponse> Participants,
+    Guid? LfgGroupId);

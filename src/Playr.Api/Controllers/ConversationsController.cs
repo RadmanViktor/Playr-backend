@@ -111,7 +111,8 @@ public sealed class ConversationsController(IChatService chatService) : Controll
         conversation.UpdatedAt,
         conversation.Participants
             .Select(p => new ChatParticipantResponse(p.UserId, p.Username, p.DisplayName, p.AvatarUrl))
-            .ToList());
+            .ToList(),
+        conversation.LfgGroupId);
 
     private static ChatMessageResponse ToResponse(ChatMessageDto message) => new(
         message.Id,
