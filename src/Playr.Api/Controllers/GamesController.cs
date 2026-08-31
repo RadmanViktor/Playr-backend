@@ -19,14 +19,9 @@ public sealed class GamesController(IGameService gameService) : ControllerBase
     [HttpGet("search-external")]
     [Authorize]
     public async Task<ActionResult<IReadOnlyList<ExternalGameSearchResponse>>> SearchExternal(
-        [FromQuery] string query, CancellationToken cancellationToken)
+        [FromQuery] string? query, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return Ok(Array.Empty<ExternalGameSearchResponse>());
-        }
-
-        var results = await gameService.SearchExternalAsync(query, cancellationToken);
+        var results = await gameService.SearchExternalAsync(query ?? string.Empty, cancellationToken);
         return Ok(results
             .Select(r => new ExternalGameSearchResponse(r.RawgId, r.Name, r.CoverImageUrl, r.Genre))
             .ToList());

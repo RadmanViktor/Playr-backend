@@ -16,11 +16,18 @@ public sealed class RawgApiClient(HttpClient httpClient, IOptions<RawgOptions> o
 {
     private readonly RawgOptions _options = options.Value;
 
+    /// <summary>
+    /// Searches RAWG for games matching <paramref name="query"/>. When <paramref name="query"/> is
+    /// null/blank, returns a default set of popular games instead (used to give the game picker
+    /// something useful to show before the user has typed anything).
+    /// </summary>
     public async Task<IReadOnlyList<RawgGameSearchResult>> SearchGamesAsync(string query, CancellationToken cancellationToken)
     {
         WarnIfApiKeyMissing();
 
-        var url = $"/api/games?key={_options.ApiKey}&search={Uri.EscapeDataString(query)}&page_size=10";
+        var url = string.IsNullOrWhiteSpace(query)
+            ? $"/api/games?key={_options.ApiKey}&ordering=-added&page_size=10"
+            : $"/api/games?key={_options.ApiKey}&search={Uri.EscapeDataString(query)}&page_size=10";
         using var response = await httpClient.GetAsync(url, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {

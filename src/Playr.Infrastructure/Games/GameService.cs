@@ -19,11 +19,6 @@ public sealed class GameService(PlayrDbContext dbContext, RawgApiClient rawgApiC
 
     public async Task<IReadOnlyList<ExternalGameSearchResultDto>> SearchExternalAsync(string query, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return [];
-        }
-
         var results = await rawgApiClient.SearchGamesAsync(query, cancellationToken);
         return results
             .Select(r => new ExternalGameSearchResultDto(r.RawgId, r.Name, r.CoverImageUrl, r.Genre))
