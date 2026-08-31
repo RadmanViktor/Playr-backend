@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Playr.Infrastructure.Data;
@@ -12,9 +13,11 @@ using Playr.Infrastructure.Data;
 namespace Playr.Infrastructure.Migrations
 {
     [DbContext(typeof(PlayrDbContext))]
-    partial class PlayrDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831073938_AddOnboardingProfileFields")]
+    partial class AddOnboardingProfileFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -993,9 +996,9 @@ namespace Playr.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasDefaultValue("Online");
 
-                    b.PrimitiveCollection<string>("TypicalPlayTimes")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
+                    b.Property<string>("TypicalPlayTime")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");

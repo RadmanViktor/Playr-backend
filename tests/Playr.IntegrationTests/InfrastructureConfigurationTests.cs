@@ -35,7 +35,7 @@ public class InfrastructureConfigurationTests
         profileType.FindProperty(nameof(UserProfile.Languages))!.GetColumnType().Should().Be("jsonb");
         profileType.FindProperty(nameof(UserProfile.Platforms))!.GetColumnType().Should().Be("jsonb");
         profileType.FindProperty(nameof(UserProfile.ExternalLinks))!.GetColumnType().Should().Be("jsonb");
-        profileType.FindProperty(nameof(UserProfile.CurrentlyPlayingGames))!.GetColumnType().Should().Be("jsonb");
+        profileType.FindProperty(nameof(UserProfile.Genres))!.GetColumnType().Should().Be("jsonb");
 
         var foreignKey = profileType.GetForeignKeys().Should().ContainSingle(fk => fk.PrincipalEntityType.ClrType == typeof(ApplicationUser)).Subject;
         foreignKey.DeleteBehavior.Should().Be(DeleteBehavior.Cascade);

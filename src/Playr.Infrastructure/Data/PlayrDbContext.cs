@@ -23,6 +23,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<Game> Games => Set<Game>();
     public DbSet<UserGameLibraryEntry> UserGameLibraryEntries => Set<UserGameLibraryEntry>();
+    public DbSet<UserPlayingNow> UserPlayingNows => Set<UserPlayingNow>();
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<PostMedia> PostMedia => Set<PostMedia>();
     public DbSet<PostLike> PostLikes => Set<PostLike>();
@@ -60,6 +61,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             profile.Property(p => p.DisplayName).HasMaxLength(64).IsRequired();
             profile.Property(p => p.Bio).HasMaxLength(500);
             profile.Property(p => p.AvatarUrl).HasMaxLength(500);
+            profile.Property(p => p.CoverImageUrl).HasMaxLength(500);
             profile.Property(p => p.Region).HasMaxLength(64);
             profile.Property(p => p.Status)
                 .HasConversion<string>()
@@ -69,7 +71,14 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             profile.Property(p => p.LookingForPlayStyle)
                 .HasConversion<string>()
                 .HasMaxLength(32);
+            profile.Property(p => p.PlaystylePreference)
+                .HasConversion<string>()
+                .HasMaxLength(32);
+            profile.Property(p => p.UsuallyPlayingWith)
+                .HasConversion<string>()
+                .HasMaxLength(32);
             profile.Property(p => p.LookingForGameNote).HasMaxLength(200);
+            profile.Property(p => p.HasCompletedOnboarding).HasDefaultValue(false).IsRequired();
             profile.Property(p => p.ChatSoundEnabled).HasDefaultValue(true).IsRequired();
             profile.Property(p => p.ChatBrowserNotificationsEnabled).HasDefaultValue(true).IsRequired();
             profile.HasOne(p => p.LookingForGame)
@@ -80,15 +89,38 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             {
                 profile.Property(p => p.Languages).HasColumnType("jsonb");
                 profile.Property(p => p.Platforms).HasColumnType("jsonb");
+                profile.Property(p => p.Genres).HasColumnType("jsonb");
+                profile.Property(p => p.TypicalPlayTimes).HasColumnType("jsonb");
                 profile.Property(p => p.ExternalLinks).HasColumnType("jsonb");
-                profile.Property(p => p.CurrentlyPlayingGames).HasColumnType("jsonb");
             }
             else
             {
                 profile.Property(p => p.Languages).HasJsonConversion();
                 profile.Property(p => p.Platforms).HasJsonConversion();
+                profile.Property(p => p.Genres).HasJsonConversion();
+                profile.Property(p => p.TypicalPlayTimes).HasJsonConversion();
                 profile.Property(p => p.ExternalLinks).HasJsonConversion();
-                profile.Property(p => p.CurrentlyPlayingGames).HasJsonConversion();
+            }
+        });
+
+        builder.Entity<UserPlayingNow>(playingNow =>
+        {
+            playingNow.HasKey(p => new { p.UserId, p.GameId });
+            playingNow.Property(p => p.StatusText).HasMaxLength(200);
+            playingNow.HasOne(p => p.Game)
+                .WithMany()
+                .HasForeignKey(p => p.GameId)
+                .OnDelete(DeleteBehavior.Cascade);
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                playingNow.Property(p => p.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                playingNow.Property(p => p.UpdatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
             }
         });
 

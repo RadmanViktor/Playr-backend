@@ -37,7 +37,6 @@ public class ContractTests
         profile.Languages.Should().BeEmpty();
         profile.Platforms.Should().BeEmpty();
         profile.ExternalLinks.Should().BeEmpty();
-        profile.CurrentlyPlayingGames.Should().BeEmpty();
         profile.Status.Should().Be(ProfileStatus.Online);
         profile.LookingForGameId.Should().BeNull();
         profile.LookingForPlayStyle.Should().BeNull();
@@ -78,8 +77,8 @@ public class ContractTests
     {
         string[] languages = ["en"];
         string[] platforms = ["pc"];
+        string[] genres = ["FPS"];
         Dictionary<string, string> externalLinks = new() { ["twitch"] = "https://example.com" };
-        string[] games = ["Game"];
         var createdAt = DateTimeOffset.UtcNow;
         var updatedAt = createdAt.AddMinutes(1);
 
@@ -89,16 +88,21 @@ public class ContractTests
             "Player",
             "bio",
             "avatar",
+            "cover",
             "region",
             languages,
             platforms,
+            genres,
             externalLinks,
-            games,
             ProfileStatus.LookingForGame,
             null,
             null,
             null,
             null,
+            null,
+            null,
+            [],
+            false,
             createdAt,
             updatedAt);
         var command = new UpdateProfileCommand(
@@ -107,8 +111,8 @@ public class ContractTests
             "region",
             languages,
             platforms,
-            externalLinks,
-            games);
+            genres,
+            externalLinks);
 
         profile.Username.Should().Be("player");
         profile.Languages.Should().BeEquivalentTo(languages);
@@ -116,13 +120,14 @@ public class ContractTests
         profile.Status.Should().Be(ProfileStatus.LookingForGame);
         profile.UpdatedAt.Should().Be(updatedAt);
         command.DisplayName.Should().Be("Player");
-        command.CurrentlyPlayingGames.Should().BeEquivalentTo(games);
+        command.Genres.Should().BeEquivalentTo(genres);
         typeof(IProfileService).GetMethods().Select(method => method.Name).Should().BeEquivalentTo(
             "GetByUsernameAsync",
             "GetByUserIdAsync",
             "UpdateCurrentUserAsync",
             "UpdateStatusAsync",
             "UpdateAvatarAsync",
+            "UpdateCoverImageAsync",
             "SetOfflineAsync",
             "SetOnlineIfOfflineAsync",
             "SearchAsync",

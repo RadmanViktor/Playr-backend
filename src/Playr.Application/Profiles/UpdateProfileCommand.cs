@@ -6,5 +6,5 @@ public sealed record UpdateProfileCommand(
     string? Region,
     IReadOnlyList<string> Languages,
     IReadOnlyList<string> Platforms,
-    IReadOnlyDictionary<string, string> ExternalLinks,
-    IReadOnlyList<string> CurrentlyPlayingGames);
+    IReadOnlyList<string> Genres,
+    IReadOnlyDictionary<string, string> ExternalLinks);

@@ -22,6 +22,11 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
     private const int MaxRegionLength = 64;
     private const int MaxLookingForNoteLength = 200;
 
+    private static readonly HashSet<string> AllowedGenres = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "FPS", "RPG", "Survival", "MMO", "Strategy", "Horror", "Racing", "Sports", "Co-op", "Indie",
+    };
+
     public async Task<ProfileDto?> GetByUsernameAsync(string username, Guid? currentUserId, CancellationToken cancellationToken)
     {
         var normalized = username.ToUpperInvariant();
@@ -95,7 +100,7 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
 
         var languages = NormalizeList(command.Languages, nameof(command.Languages));
         var platforms = NormalizeList(command.Platforms, nameof(command.Platforms));
-        var currentlyPlayingGames = NormalizeList(command.CurrentlyPlayingGames, nameof(command.CurrentlyPlayingGames));
+        var genres = NormalizeGenres(command.Genres);
         var externalLinks = NormalizeExternalLinks(command.ExternalLinks);
         var bio = NormalizeOptionalText(command.Bio, "Bio", MaxBioLength);
         var region = NormalizeOptionalText(command.Region, "Region", MaxRegionLength);
@@ -108,8 +113,8 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         profile.Region = region;
         profile.Languages = languages;
         profile.Platforms = platforms;
+        profile.Genres = genres;
         profile.ExternalLinks = externalLinks;
-        profile.CurrentlyPlayingGames = currentlyPlayingGames;
         profile.UpdatedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -222,26 +227,66 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         return ToDto(profile);
     }
 
+    public async Task<ProfileDto> UpdateCoverImageAsync(Guid userId, string baseUrl, FileUploadInput coverImage, CancellationToken cancellationToken)
+    {
+        var extension = ImageUploadValidator.Validate(coverImage);
+
+        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken)
+            ?? throw new InvalidOperationException("Profile was not found.");
+
+        var saved = await fileStorageService.SaveAsync(coverImage.Content, extension, "covers", cancellationToken);
+        var newCoverImageUrl = $"{baseUrl}{saved.RelativeUrl}";
+
+        if (!string.IsNullOrEmpty(profile.CoverImageUrl) && profile.CoverImageUrl.StartsWith(baseUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            var oldRelativeUrl = profile.CoverImageUrl[baseUrl.Length..];
+            fileStorageService.Delete(oldRelativeUrl);
+        }
+
+        profile.CoverImageUrl = newCoverImageUrl;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ToDto(profile);
+    }
+
     private static ProfileDto ToDto(UserProfile profile, RelationshipStatus? relationshipStatus = null, Guid? pendingInvitationId = null) => new(
         profile.UserId,
         profile.Username,
         profile.DisplayName,
         profile.Bio,
         profile.AvatarUrl,
+        profile.CoverImageUrl,
         profile.Region,
         profile.Languages,
         profile.Platforms,
+        profile.Genres,
         profile.ExternalLinks,
-        profile.CurrentlyPlayingGames,
         profile.Status,
         profile.LookingForGameId,
         profile.LookingForGame?.Name,
         profile.LookingForPlayStyle,
         profile.LookingForGameNote,
+        profile.PlaystylePreference,
+        profile.UsuallyPlayingWith,
+        profile.TypicalPlayTimes,
+        profile.HasCompletedOnboarding,
         profile.CreatedAt,
         profile.UpdatedAt,
         relationshipStatus,
         pendingInvitationId);
+
+    private static List<string> NormalizeGenres(IReadOnlyList<string>? values)
+    {
+        var normalized = NormalizeList(values, "Genres");
+        var invalid = normalized.FirstOrDefault(value => !AllowedGenres.Contains(value));
+        if (invalid is not null)
+        {
+            throw new InvalidOperationException($"'{invalid}' is not a supported genre.");
+        }
+
+        return normalized;
+    }
 
     private static List<string> NormalizeList(IReadOnlyList<string>? values, string name)
     {

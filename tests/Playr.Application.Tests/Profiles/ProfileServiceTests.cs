@@ -74,7 +74,6 @@ public sealed class ProfileServiceTests
     [Theory]
     [InlineData(nameof(UpdateProfileCommand.Languages))]
     [InlineData(nameof(UpdateProfileCommand.Platforms))]
-    [InlineData(nameof(UpdateProfileCommand.CurrentlyPlayingGames))]
     public async Task UpdateCurrentUserAsync_WhenListContainsOversizedItem_ThrowsInvalidOperationException(string propertyName)
     {
         await using var fixture = await ProfileFixture.CreateAsync();
@@ -83,7 +82,6 @@ public sealed class ProfileServiceTests
         {
             nameof(UpdateProfileCommand.Languages) => fixture.ValidCommand() with { Languages = [value] },
             nameof(UpdateProfileCommand.Platforms) => fixture.ValidCommand() with { Platforms = [value] },
-            nameof(UpdateProfileCommand.CurrentlyPlayingGames) => fixture.ValidCommand() with { CurrentlyPlayingGames = [value] },
             _ => throw new InvalidOperationException("Unexpected property name.")
         };
 
@@ -111,21 +109,6 @@ public sealed class ProfileServiceTests
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage($"{propertyName} cannot contain more than 20 items.");
-    }
-
-    [Fact]
-    public async Task UpdateCurrentUserAsync_WhenCurrentlyPlayingGamesContainsTooManyItems_ThrowsInvalidOperationException()
-    {
-        await using var fixture = await ProfileFixture.CreateAsync();
-        var command = fixture.ValidCommand() with
-        {
-            CurrentlyPlayingGames = Enumerable.Range(1, 21).Select(index => $"game-{index}").ToArray()
-        };
-
-        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
-
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("CurrentlyPlayingGames cannot contain more than 20 items.");
     }
 
     [Fact]
@@ -434,8 +417,8 @@ public sealed class ProfileServiceTests
             null,
             ["English"],
             ["PC"],
-            new Dictionary<string, string> { ["Steam"] = "https://example.com/player" },
-            ["Chess"]);
+            ["FPS"],
+            new Dictionary<string, string> { ["Steam"] = "https://example.com/player" });
 
         public async ValueTask DisposeAsync()
         {

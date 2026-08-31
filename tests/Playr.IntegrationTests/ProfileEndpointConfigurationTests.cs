@@ -44,8 +44,8 @@ public class ProfileEndpointConfigurationTests
         profileResponse.GetProperty("Region")!.PropertyType.Should().Be(typeof(string));
         profileResponse.GetProperty("Languages")!.PropertyType.Should().Be(typeof(IReadOnlyList<string>));
         profileResponse.GetProperty("Platforms")!.PropertyType.Should().Be(typeof(IReadOnlyList<string>));
+        profileResponse.GetProperty("Genres")!.PropertyType.Should().Be(typeof(IReadOnlyList<string>));
         profileResponse.GetProperty("ExternalLinks")!.PropertyType.Should().Be(typeof(IReadOnlyDictionary<string, string>));
-        profileResponse.GetProperty("CurrentlyPlayingGames")!.PropertyType.Should().Be(typeof(IReadOnlyList<string>));
         profileResponse.GetProperty("Status")!.PropertyType.Should().Be(typeof(ProfileStatus));
         profileResponse.GetProperty("CreatedAt")!.PropertyType.Should().Be(typeof(DateTimeOffset));
         profileResponse.GetProperty("UpdatedAt")!.PropertyType.Should().Be(typeof(DateTimeOffset));
@@ -78,7 +78,7 @@ public class ProfileEndpointConfigurationTests
     [InlineData("not-a-guid")]
     public async Task UpdateMe_returns_unauthorized_when_user_id_claim_is_missing_or_invalid(string? userIdClaim)
     {
-        var controller = new ProfilesController(new ThrowingProfileService(), new ThrowingPostService(), new ThrowingGameLibraryService())
+        var controller = new ProfilesController(new ThrowingProfileService(), new ThrowingPostService(), new ThrowingGameLibraryService(), new ThrowingPlayingNowService())
         {
             ControllerContext = new ControllerContext
             {
@@ -133,6 +133,9 @@ public class ProfileEndpointConfigurationTests
         public Task<ProfileDto> UpdateAvatarAsync(Guid userId, string baseUrl, Playr.Application.Common.FileUploadInput avatar, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
 
+        public Task<ProfileDto> UpdateCoverImageAsync(Guid userId, string baseUrl, Playr.Application.Common.FileUploadInput coverImage, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
+
         public Task SetOfflineAsync(Guid userId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
 
@@ -177,5 +180,17 @@ public class ProfileEndpointConfigurationTests
 
         public Task RemoveGameAsync(Guid userId, Guid gameId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Game library service should not be called.");
+    }
+
+    private sealed class ThrowingPlayingNowService : IPlayingNowService
+    {
+        public Task<IReadOnlyList<PlayingNowDto>> GetForUserAsync(Guid userId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Playing now service should not be called.");
+
+        public Task<PlayingNowDto> SetAsync(Guid userId, Guid gameId, string? statusText, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Playing now service should not be called.");
+
+        public Task RemoveAsync(Guid userId, Guid gameId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Playing now service should not be called.");
     }
 }

@@ -8,7 +8,7 @@ Steam and other external services should only be optional integrations that enri
 
 ---
 
-## Task 1 – Build onboarding flow for new users
+## Task 1 – Build onboarding flow for new users ✅ COMPLETED
 
 Create an onboarding flow shown after account creation, or the first time a profile is missing core gaming data.
 
@@ -365,7 +365,7 @@ External services are optional profile enrichments, not requirements.
 
 ---
 
-## Task 10 – Implement Followers
+## Task 10 – Implement Followers ✅ COMPLETED
 
 Implement a follower system.
 

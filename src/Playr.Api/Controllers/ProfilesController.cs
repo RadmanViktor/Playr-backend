@@ -15,7 +15,7 @@ namespace Playr.Api.Controllers;
 [ApiController]
 [Route("api/profiles")]
 public sealed class ProfilesController(
-    IProfileService profileService, IPostService postService, IGameLibraryService gameLibraryService) : ControllerBase
+    IProfileService profileService, IPostService postService, IGameLibraryService gameLibraryService, IPlayingNowService playingNowService) : ControllerBase
 {
     [HttpGet("{username}")]
     public async Task<ActionResult<ProfileResponse>> GetByUsername(string username, CancellationToken cancellationToken)
@@ -44,8 +44,8 @@ public sealed class ProfilesController(
                     request.Region,
                     request.Languages ?? [],
                     request.Platforms ?? [],
-                    request.ExternalLinks ?? new Dictionary<string, string>(),
-                    request.CurrentlyPlayingGames ?? []),
+                    request.Genres ?? [],
+                    request.ExternalLinks ?? new Dictionary<string, string>()),
                 cancellationToken);
 
             return Ok(ToResponse(profile));
@@ -94,6 +94,28 @@ public sealed class ProfilesController(
             var baseUrl = $"{Request.Scheme}://{Request.Host}";
             var input = new FileUploadInput(request.Avatar.OpenReadStream(), request.Avatar.FileName, request.Avatar.ContentType, request.Avatar.Length);
             var profile = await profileService.UpdateAvatarAsync(userId, baseUrl, input, cancellationToken);
+            return Ok(ToResponse(profile));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize]
+    [HttpPost("me/cover-image")]
+    public async Task<ActionResult<ProfileResponse>> UploadCoverImage([FromForm] UploadCoverImageRequest request, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        try
+        {
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";
+            var input = new FileUploadInput(request.CoverImage.OpenReadStream(), request.CoverImage.FileName, request.CoverImage.ContentType, request.CoverImage.Length);
+            var profile = await profileService.UpdateCoverImageAsync(userId, baseUrl, input, cancellationToken);
             return Ok(ToResponse(profile));
         }
         catch (InvalidOperationException ex)
@@ -196,22 +218,78 @@ public sealed class ProfilesController(
     private static GameLibraryEntryResponse ToLibraryResponse(GameLibraryEntryDto entry) => new(
         entry.GameId, entry.GameName, entry.GameCoverImageUrl, entry.Genre, entry.Rating, entry.ReviewText, entry.AddedAt, entry.UpdatedAt);
 
+    [HttpGet("{username}/playing-now")]
+    public async Task<ActionResult<IReadOnlyList<PlayingNowResponse>>> GetPlayingNowByUsername(
+        string username, CancellationToken cancellationToken)
+    {
+        var profile = await profileService.GetByUsernameAsync(username, null, cancellationToken);
+        if (profile is null)
+        {
+            return NotFound(new { error = "Profile was not found." });
+        }
+
+        var entries = await playingNowService.GetForUserAsync(profile.UserId, cancellationToken);
+        return Ok(entries.Select(ToPlayingNowResponse).ToList());
+    }
+
+    [Authorize]
+    [HttpPut("me/playing-now")]
+    public async Task<ActionResult<PlayingNowResponse>> SetPlayingNow(
+        SetPlayingNowRequest request, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        try
+        {
+            var entry = await playingNowService.SetAsync(userId, request.GameId, request.StatusText, cancellationToken);
+            return Ok(ToPlayingNowResponse(entry));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize]
+    [HttpDelete("me/playing-now/{gameId:guid}")]
+    public async Task<IActionResult> RemovePlayingNow(Guid gameId, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        await playingNowService.RemoveAsync(userId, gameId, cancellationToken);
+        return NoContent();
+    }
+
+    private static PlayingNowResponse ToPlayingNowResponse(PlayingNowDto entry) => new(
+        entry.GameId, entry.GameName, entry.GameCoverImageUrl, entry.StatusText, entry.CreatedAt, entry.UpdatedAt);
+
     private static ProfileResponse ToResponse(ProfileDto profile) => new(
         profile.UserId,
         profile.Username,
         profile.DisplayName,
         profile.Bio,
         profile.AvatarUrl,
+        profile.CoverImageUrl,
         profile.Region,
         profile.Languages,
         profile.Platforms,
+        profile.Genres,
         profile.ExternalLinks,
-        profile.CurrentlyPlayingGames,
         profile.Status,
         profile.LookingForGameId,
         profile.LookingForGameName,
         profile.LookingForPlayStyle,
         profile.LookingForGameNote,
+        profile.PlaystylePreference,
+        profile.UsuallyPlayingWith,
+        profile.TypicalPlayTimes,
+        profile.HasCompletedOnboarding,
         profile.CreatedAt,
         profile.UpdatedAt,
         profile.RelationshipStatus?.ToString(),

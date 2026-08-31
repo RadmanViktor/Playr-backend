@@ -8,5 +8,5 @@ public sealed record UpdateProfileRequest(
     [StringLength(64)] string? Region,
     IReadOnlyList<string>? Languages,
     IReadOnlyList<string>? Platforms,
-    IReadOnlyDictionary<string, string>? ExternalLinks,
-    IReadOnlyList<string>? CurrentlyPlayingGames);
+    IReadOnlyList<string>? Genres,
+    IReadOnlyDictionary<string, string>? ExternalLinks);
