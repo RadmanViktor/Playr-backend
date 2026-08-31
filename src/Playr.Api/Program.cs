@@ -31,6 +31,7 @@ builder.Services.AddScoped<IInvitationNotifier, Playr.Api.Invitations.SignalRInv
 builder.Services.AddScoped<Playr.Application.Friends.IFriendRequestNotifier, Playr.Api.Friends.SignalRFriendRequestNotifier>();
 builder.Services.AddScoped<Playr.Application.Follows.IFollowNotifier, Playr.Api.Follows.SignalRFollowNotifier>();
 builder.Services.AddScoped<Playr.Application.Notifications.INotificationNotifier, Playr.Api.Notifications.SignalRNotificationNotifier>();
+builder.Services.AddScoped<Playr.Application.Profiles.IProfilePresenceNotifier, Playr.Api.Profiles.SignalRProfilePresenceNotifier>();
 
 builder.Services.AddCors(options =>
 {

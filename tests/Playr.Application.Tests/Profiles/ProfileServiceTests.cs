@@ -390,7 +390,7 @@ public sealed class ProfileServiceTests
             Name = "Chess"
         });
         await dbContext.SaveChangesAsync();
-        var service = new ProfileService(dbContext, new Playr.Application.Tests.Posts.NoOpFileStorageService());
+        var service = new ProfileService(dbContext, new Playr.Application.Tests.Posts.NoOpFileStorageService(), new NoOpProfilePresenceNotifier());
         return (service, dbContext, userId, gameId);
     }
 
@@ -434,7 +434,7 @@ public sealed class ProfileServiceTests
                 DisplayName = "Player"
             });
             await dbContext.SaveChangesAsync();
-            return new ProfileFixture(connection, dbContext, new ProfileService(dbContext, new Playr.Application.Tests.Posts.NoOpFileStorageService()), userId);
+            return new ProfileFixture(connection, dbContext, new ProfileService(dbContext, new Playr.Application.Tests.Posts.NoOpFileStorageService(), new NoOpProfilePresenceNotifier()), userId);
         }
 
         public UpdateProfileCommand ValidCommand() => new(

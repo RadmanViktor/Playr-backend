@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Playr.Application.Notifications;
+using Playr.Application.Profiles;
+using Playr.Domain.Profiles;
 using Playr.Infrastructure;
 
 namespace Playr.IntegrationTests;
@@ -37,6 +39,9 @@ internal static class InfrastructureTestServices
         // on INotificationFeedService -> INotificationNotifier, so a no-op stand-in is
         // needed here for the container to resolve them at all.
         services.AddScoped<INotificationNotifier, NoOpNotificationNotifier>();
+        // ProfileService now depends on IProfilePresenceNotifier -> IHubContext<ChatHub>, which
+        // also lives in the Api project, so a no-op stand-in is needed here too.
+        services.AddScoped<IProfilePresenceNotifier, NoOpProfilePresenceNotifier>();
 
         return services;
     }
@@ -44,6 +49,12 @@ internal static class InfrastructureTestServices
     private sealed class NoOpNotificationNotifier : INotificationNotifier
     {
         public Task NotifyNotificationCreatedAsync(NotificationDto notification, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class NoOpProfilePresenceNotifier : IProfilePresenceNotifier
+    {
+        public Task NotifyStatusChangedAsync(Guid userId, ProfileStatus status, CancellationToken cancellationToken) =>
             Task.CompletedTask;
     }
 

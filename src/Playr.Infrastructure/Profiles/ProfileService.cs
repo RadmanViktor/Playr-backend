@@ -10,7 +10,10 @@ using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Profiles;
 
-public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService fileStorageService) : IProfileService
+public sealed class ProfileService(
+    PlayrDbContext dbContext,
+    IFileStorageService fileStorageService,
+    IProfilePresenceNotifier profilePresenceNotifier) : IProfileService
 {
     private const int MaxListItems = 20;
     private const int MaxListItemLength = 64;
@@ -173,6 +176,7 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         profile.UpdatedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await profilePresenceNotifier.NotifyStatusChangedAsync(userId, profile.Status, cancellationToken);
 
         var reloaded = await dbContext.UserProfiles.AsNoTracking()
             .Include(p => p.LookingForGame)
@@ -195,6 +199,7 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         profile.UpdatedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await profilePresenceNotifier.NotifyStatusChangedAsync(userId, ProfileStatus.Offline, cancellationToken);
     }
 
     public async Task SetOnlineIfOfflineAsync(Guid userId, CancellationToken cancellationToken)
@@ -209,6 +214,7 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         profile.UpdatedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await profilePresenceNotifier.NotifyStatusChangedAsync(userId, ProfileStatus.Online, cancellationToken);
     }
 
     public async Task<ProfileDto> UpdateAvatarAsync(Guid userId, string baseUrl, FileUploadInput avatar, CancellationToken cancellationToken)
