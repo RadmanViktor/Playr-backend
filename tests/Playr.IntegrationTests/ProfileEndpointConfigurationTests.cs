@@ -78,7 +78,7 @@ public class ProfileEndpointConfigurationTests
     [InlineData("not-a-guid")]
     public async Task UpdateMe_returns_unauthorized_when_user_id_claim_is_missing_or_invalid(string? userIdClaim)
     {
-        var controller = new ProfilesController(new ThrowingProfileService(), new ThrowingPostService(), new ThrowingGameLibraryService(), new ThrowingPlayingNowService())
+        var controller = new ProfilesController(new ThrowingProfileService(), new ThrowingPostService(), new ThrowingGameLibraryService(), new ThrowingPlayingNowService(), new ThrowingFavoriteGameService())
         {
             ControllerContext = new ControllerContext
             {
@@ -192,5 +192,17 @@ public class ProfileEndpointConfigurationTests
 
         public Task RemoveAsync(Guid userId, Guid gameId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Playing now service should not be called.");
+    }
+
+    private sealed class ThrowingFavoriteGameService : IFavoriteGameService
+    {
+        public Task<IReadOnlyList<FavoriteGameDto>> GetForUserAsync(Guid userId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Favorite game service should not be called.");
+
+        public Task<FavoriteGameDto> AddAsync(Guid userId, Guid gameId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Favorite game service should not be called.");
+
+        public Task RemoveAsync(Guid userId, Guid gameId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Favorite game service should not be called.");
     }
 }

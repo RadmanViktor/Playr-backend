@@ -24,6 +24,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<Game> Games => Set<Game>();
     public DbSet<UserGameLibraryEntry> UserGameLibraryEntries => Set<UserGameLibraryEntry>();
     public DbSet<UserPlayingNow> UserPlayingNows => Set<UserPlayingNow>();
+    public DbSet<UserFavoriteGame> UserFavoriteGames => Set<UserFavoriteGame>();
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<PostMedia> PostMedia => Set<PostMedia>();
     public DbSet<PostLike> PostLikes => Set<PostLike>();
@@ -112,6 +113,22 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                         v => v.ToUnixTimeMilliseconds(),
                         v => DateTimeOffset.FromUnixTimeMilliseconds(v));
                 playingNow.Property(p => p.UpdatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+            }
+        });
+
+        builder.Entity<UserFavoriteGame>(favorite =>
+        {
+            favorite.HasKey(f => new { f.UserId, f.GameId });
+            favorite.HasOne(f => f.Game)
+                .WithMany()
+                .HasForeignKey(f => f.GameId)
+                .OnDelete(DeleteBehavior.Cascade);
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                favorite.Property(f => f.CreatedAt)
                     .HasConversion(
                         v => v.ToUnixTimeMilliseconds(),
                         v => DateTimeOffset.FromUnixTimeMilliseconds(v));

@@ -56,6 +56,7 @@ public static class DependencyInjection
         services.AddScoped<Playr.Application.Games.IGameService, Playr.Infrastructure.Games.GameService>();
         services.AddScoped<Playr.Application.Games.IGameLibraryService, Playr.Infrastructure.Games.GameLibraryService>();
         services.AddScoped<Playr.Application.Games.IPlayingNowService, Playr.Infrastructure.Games.PlayingNowService>();
+        services.AddScoped<Playr.Application.Games.IFavoriteGameService, Playr.Infrastructure.Games.FavoriteGameService>();
         services.AddScoped<Playr.Application.Onboarding.IOnboardingService, Playr.Infrastructure.Onboarding.OnboardingService>();
         services.AddScoped<Playr.Application.Posts.IPostService, Playr.Infrastructure.Posts.PostService>();
         services.AddScoped<Playr.Application.Comments.ICommentService, Playr.Infrastructure.Comments.CommentService>();

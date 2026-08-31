@@ -15,7 +15,8 @@ namespace Playr.Api.Controllers;
 [ApiController]
 [Route("api/profiles")]
 public sealed class ProfilesController(
-    IProfileService profileService, IPostService postService, IGameLibraryService gameLibraryService, IPlayingNowService playingNowService) : ControllerBase
+    IProfileService profileService, IPostService postService, IGameLibraryService gameLibraryService,
+    IPlayingNowService playingNowService, IFavoriteGameService favoriteGameService) : ControllerBase
 {
     [HttpGet("{username}")]
     public async Task<ActionResult<ProfileResponse>> GetByUsername(string username, CancellationToken cancellationToken)
@@ -269,6 +270,64 @@ public sealed class ProfilesController(
 
     private static PlayingNowResponse ToPlayingNowResponse(PlayingNowDto entry) => new(
         entry.GameId, entry.GameName, entry.GameCoverImageUrl, entry.StatusText, entry.CreatedAt, entry.UpdatedAt);
+
+    [HttpGet("{username}/favorites")]
+    public async Task<ActionResult<IReadOnlyList<FavoriteGameResponse>>> GetFavoritesByUsername(
+        string username, CancellationToken cancellationToken)
+    {
+        var profile = await profileService.GetByUsernameAsync(username, null, cancellationToken);
+        if (profile is null)
+        {
+            return NotFound(new { error = "Profile was not found." });
+        }
+
+        var entries = await favoriteGameService.GetForUserAsync(profile.UserId, cancellationToken);
+        return Ok(entries.Select(ToFavoriteResponse).ToList());
+    }
+
+    [Authorize]
+    [HttpPost("me/favorites")]
+    public async Task<ActionResult<FavoriteGameResponse>> AddFavorite(
+        AddFavoriteGameRequest request, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        try
+        {
+            var entry = await favoriteGameService.AddAsync(userId, request.GameId, cancellationToken);
+            return Ok(ToFavoriteResponse(entry));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize]
+    [HttpDelete("me/favorites/{gameId:guid}")]
+    public async Task<IActionResult> RemoveFavorite(Guid gameId, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        try
+        {
+            await favoriteGameService.RemoveAsync(userId, gameId, cancellationToken);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    private static FavoriteGameResponse ToFavoriteResponse(FavoriteGameDto entry) => new(
+        entry.GameId, entry.GameName, entry.GameCoverImageUrl, entry.Genre, entry.CreatedAt);
 
     private static ProfileResponse ToResponse(ProfileDto profile) => new(
         profile.UserId,
