@@ -34,4 +34,11 @@ public sealed class NoOpNotificationFeedService : INotificationFeedService
         Playr.Domain.Badges.BadgeLevel badgeLevel,
         CancellationToken cancellationToken) =>
         Task.CompletedTask;
+
+    public Task CreateLfgApplicationNotificationAsync(
+        Guid actorUserId,
+        Guid recipientUserId,
+        Guid lfgGroupId,
+        CancellationToken cancellationToken) =>
+        Task.CompletedTask;
 }

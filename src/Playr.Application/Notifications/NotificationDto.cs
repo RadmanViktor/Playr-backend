@@ -16,4 +16,5 @@ public sealed record NotificationDto(
     Guid? PostId,
     Guid? CommentId,
     string? BadgeType,
-    string? BadgeLevel);
+    string? BadgeLevel,
+    Guid? LfgGroupId);

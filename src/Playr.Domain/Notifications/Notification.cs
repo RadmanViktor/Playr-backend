@@ -15,6 +15,7 @@ public sealed class Notification
     public Guid? CommentId { get; set; }
     public BadgeType? BadgeType { get; set; }
     public BadgeLevel? BadgeLevel { get; set; }
+    public Guid? LfgGroupId { get; set; }
     public bool IsRead { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }

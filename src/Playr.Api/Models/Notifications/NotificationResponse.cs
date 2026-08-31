@@ -13,7 +13,8 @@ public sealed record NotificationResponse(
     DateTimeOffset CreatedAt,
     NotificationActorResponse Actor,
     Guid? PostId,
-    Guid? CommentId);
+    Guid? CommentId,
+    Guid? LfgGroupId);
 
 public sealed record NotificationFeedResponse(
     IReadOnlyList<NotificationResponse> Items,

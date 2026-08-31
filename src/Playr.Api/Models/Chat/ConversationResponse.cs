@@ -2,8 +2,11 @@ namespace Playr.Api.Models.Chat;
 
 public sealed record ConversationResponse(
     Guid Id,
-    ChatParticipantResponse OtherParticipant,
+    string Type,
+    string? Title,
+    ChatParticipantResponse? OtherParticipant,
     string? LastMessage,
     DateTimeOffset? LastMessageAt,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<ChatParticipantResponse> Participants);

@@ -13,8 +13,13 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
 
     public async Task<IReadOnlyList<ConversationDto>> GetConversationsAsync(Guid userId, CancellationToken cancellationToken)
     {
+        var conversationIds = await dbContext.ConversationParticipants.AsNoTracking()
+            .Where(p => p.UserId == userId)
+            .Select(p => p.ConversationId)
+            .ToListAsync(cancellationToken);
+
         var conversations = await dbContext.Conversations.AsNoTracking()
-            .Where(c => c.DirectUserAId == userId || c.DirectUserBId == userId)
+            .Where(c => conversationIds.Contains(c.Id))
             .OrderByDescending(c => c.UpdatedAt)
             .ToListAsync(cancellationToken);
 
@@ -30,7 +35,7 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
 
         var (userAId, userBId) = OrderPair(userId, otherUserId);
         var conversation = await dbContext.Conversations
-            .FirstOrDefaultAsync(c => c.DirectUserAId == userAId && c.DirectUserBId == userBId, cancellationToken);
+            .FirstOrDefaultAsync(c => c.Type == ConversationType.Direct && c.DirectUserAId == userAId && c.DirectUserBId == userBId, cancellationToken);
 
         if (conversation is null)
         {
@@ -38,6 +43,7 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
             conversation = new Conversation
             {
                 Id = Guid.NewGuid(),
+                Type = ConversationType.Direct,
                 DirectUserAId = userAId,
                 DirectUserBId = userBId,
                 CreatedAt = now,
@@ -53,6 +59,49 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
         }
 
         var dtos = await MapConversationsAsync([conversation], userId, cancellationToken);
+        return dtos[0];
+    }
+
+    public async Task<ConversationDto> GetOrCreateGroupConversationAsync(
+        IReadOnlyList<Guid> memberUserIds,
+        string? title,
+        Guid? lfgGroupId,
+        CancellationToken cancellationToken)
+    {
+        var distinctMemberIds = memberUserIds.Distinct().ToList();
+        if (distinctMemberIds.Count < 2)
+        {
+            throw new InvalidOperationException("A group conversation requires at least two members.");
+        }
+
+        if (lfgGroupId is not null)
+        {
+            var existing = await dbContext.Conversations
+                .FirstOrDefaultAsync(c => c.Type == ConversationType.Group && c.LfgGroupId == lfgGroupId, cancellationToken);
+            if (existing is not null)
+            {
+                var existingDtos = await MapConversationsAsync([existing], distinctMemberIds[0], cancellationToken);
+                return existingDtos[0];
+            }
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var conversation = new Conversation
+        {
+            Id = Guid.NewGuid(),
+            Type = ConversationType.Group,
+            Title = title,
+            LfgGroupId = lfgGroupId,
+            CreatedAt = now,
+            UpdatedAt = now,
+            Participants = distinctMemberIds
+                .Select(userId => new ConversationParticipant { UserId = userId, JoinedAt = now })
+                .ToList()
+        };
+        dbContext.Conversations.Add(conversation);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var dtos = await MapConversationsAsync([conversation], distinctMemberIds[0], cancellationToken);
         return dtos[0];
     }
 
@@ -78,7 +127,12 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
             .FirstOrDefaultAsync(c => c.Id == conversationId, cancellationToken)
             ?? throw new InvalidOperationException("Conversation was not found.");
 
-        if (conversation.DirectUserAId != userId && conversation.DirectUserBId != userId)
+        var participantIds = await dbContext.ConversationParticipants.AsNoTracking()
+            .Where(p => p.ConversationId == conversationId)
+            .Select(p => p.UserId)
+            .ToListAsync(cancellationToken);
+
+        if (!participantIds.Contains(userId))
         {
             throw new InvalidOperationException("You are not part of this conversation.");
         }
@@ -123,7 +177,7 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
         var dto = dtos[0];
 
         await chatNotifier.NotifyNewMessageAsync(
-            [conversation.DirectUserAId, conversation.DirectUserBId],
+            participantIds,
             dto,
             cancellationToken);
 
@@ -132,8 +186,8 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
 
     private async Task EnsureParticipantAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken)
     {
-        var isParticipant = await dbContext.Conversations.AsNoTracking()
-            .AnyAsync(c => c.Id == conversationId && (c.DirectUserAId == userId || c.DirectUserBId == userId), cancellationToken);
+        var isParticipant = await dbContext.ConversationParticipants.AsNoTracking()
+            .AnyAsync(p => p.ConversationId == conversationId && p.UserId == userId, cancellationToken);
         if (!isParticipant)
         {
             throw new InvalidOperationException("You are not part of this conversation.");
@@ -150,15 +204,19 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
             return [];
         }
 
-        var otherUserIds = conversations
-            .Select(c => c.DirectUserAId == currentUserId ? c.DirectUserBId : c.DirectUserAId)
-            .ToList();
+        var conversationIds = conversations.Select(c => c.Id).ToList();
+
+        var directConversationIds = conversations.Where(c => c.Type == ConversationType.Direct).Select(c => c.Id).ToHashSet();
+        var otherUserIdByConversation = conversations
+            .Where(c => directConversationIds.Contains(c.Id))
+            .ToDictionary(c => c.Id, c => c.DirectUserAId == currentUserId ? c.DirectUserBId : c.DirectUserAId);
+        var otherUserIds = otherUserIdByConversation.Values.Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+
         var profiles = await dbContext.UserProfiles.AsNoTracking()
             .Where(p => otherUserIds.Contains(p.UserId))
             .ToListAsync(cancellationToken);
         var profileMap = profiles.ToDictionary(p => p.UserId);
 
-        var conversationIds = conversations.Select(c => c.Id).ToList();
         var lastMessages = await dbContext.ChatMessages.AsNoTracking()
             .Where(m => conversationIds.Contains(m.ConversationId))
             .GroupBy(m => m.ConversationId)
@@ -166,18 +224,50 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
             .ToListAsync(cancellationToken);
         var lastMessageMap = lastMessages.ToDictionary(m => m.ConversationId);
 
+        var allParticipantRows = await dbContext.ConversationParticipants.AsNoTracking()
+            .Where(p => conversationIds.Contains(p.ConversationId))
+            .ToListAsync(cancellationToken);
+        var allParticipantUserIds = allParticipantRows.Select(p => p.UserId).Distinct().ToList();
+        var allProfiles = await dbContext.UserProfiles.AsNoTracking()
+            .Where(p => allParticipantUserIds.Contains(p.UserId))
+            .ToListAsync(cancellationToken);
+        var allProfileMap = allProfiles.ToDictionary(p => p.UserId);
+        var participantsByConversation = allParticipantRows
+            .GroupBy(p => p.ConversationId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<ChatParticipantDto>)g
+                    .Where(p => allProfileMap.ContainsKey(p.UserId))
+                    .Select(p =>
+                    {
+                        var profile = allProfileMap[p.UserId];
+                        return new ChatParticipantDto(profile.UserId, profile.Username, profile.DisplayName, profile.AvatarUrl);
+                    })
+                    .ToList());
+
         return conversations.Select(conversation =>
         {
-            var otherUserId = conversation.DirectUserAId == currentUserId ? conversation.DirectUserBId : conversation.DirectUserAId;
-            var profile = profileMap[otherUserId];
+            ChatParticipantDto? otherParticipant = null;
+            if (conversation.Type == ConversationType.Direct
+                && otherUserIdByConversation.TryGetValue(conversation.Id, out var otherUserId)
+                && otherUserId is Guid otherId
+                && profileMap.TryGetValue(otherId, out var profile))
+            {
+                otherParticipant = new ChatParticipantDto(profile.UserId, profile.Username, profile.DisplayName, profile.AvatarUrl);
+            }
+
             lastMessageMap.TryGetValue(conversation.Id, out var lastMessage);
+            participantsByConversation.TryGetValue(conversation.Id, out var participants);
             return new ConversationDto(
                 conversation.Id,
-                new ChatParticipantDto(profile.UserId, profile.Username, profile.DisplayName, profile.AvatarUrl),
+                conversation.Type,
+                conversation.Title,
+                otherParticipant,
                 lastMessage?.Body,
                 lastMessage?.CreatedAt,
                 conversation.CreatedAt,
-                conversation.UpdatedAt);
+                conversation.UpdatedAt,
+                participants ?? []);
         }).ToList();
     }
 

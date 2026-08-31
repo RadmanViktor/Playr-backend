@@ -63,5 +63,6 @@ public sealed class NotificationsController(INotificationFeedService notificatio
             notification.Actor.DisplayName,
             notification.Actor.AvatarUrl),
         notification.PostId,
-        notification.CommentId);
+        notification.CommentId,
+        notification.LfgGroupId);
 }

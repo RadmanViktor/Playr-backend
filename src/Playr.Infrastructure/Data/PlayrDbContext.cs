@@ -10,6 +10,7 @@ using Playr.Domain.Friendships;
 using Playr.Domain.Games;
 using Playr.Domain.Identity;
 using Playr.Domain.Invitations;
+using Playr.Domain.Lfg;
 using Playr.Domain.Notifications;
 using Playr.Domain.Posts;
 using Playr.Domain.Profiles;
@@ -45,6 +46,10 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<SteamOwnedGame> SteamOwnedGames => Set<SteamOwnedGame>();
     public DbSet<SteamAchievement> SteamAchievements => Set<SteamAchievement>();
     public DbSet<UserBadge> UserBadges => Set<UserBadge>();
+    public DbSet<LfgGroup> LfgGroups => Set<LfgGroup>();
+    public DbSet<LfgGroupMember> LfgGroupMembers => Set<LfgGroupMember>();
+    public DbSet<LfgGroupApplication> LfgGroupApplications => Set<LfgGroupApplication>();
+    public DbSet<LfgGroupInvite> LfgGroupInvites => Set<LfgGroupInvite>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -371,6 +376,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             notification.Property(n => n.BadgeLevel)
                 .HasConversion<string>()
                 .HasMaxLength(16);
+            notification.HasIndex(n => n.LfgGroupId);
             if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
             {
                 notification.Property(n => n.CreatedAt)
@@ -513,16 +519,26 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
         builder.Entity<Conversation>(conversation =>
         {
             conversation.HasKey(c => c.Id);
+            conversation.Property(c => c.Type)
+                .HasConversion<string>()
+                .HasMaxLength(16)
+                .HasDefaultValue(ConversationType.Direct)
+                .IsRequired();
+            conversation.Property(c => c.Title).HasMaxLength(128);
             conversation.HasOne(c => c.DirectUserA)
                 .WithMany()
                 .HasForeignKey(c => c.DirectUserAId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict);
             conversation.HasOne(c => c.DirectUserB)
                 .WithMany()
                 .HasForeignKey(c => c.DirectUserBId)
                 .OnDelete(DeleteBehavior.Restrict);
-            conversation.HasIndex(c => new { c.DirectUserAId, c.DirectUserBId }).IsUnique();
+            conversation.HasIndex(c => new { c.DirectUserAId, c.DirectUserBId }).IsUnique()
+                .HasFilter(Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL"
+                    ? "\"DirectUserAId\" IS NOT NULL AND \"DirectUserBId\" IS NOT NULL"
+                    : "DirectUserAId IS NOT NULL AND DirectUserBId IS NOT NULL");
             conversation.HasIndex(c => c.UpdatedAt);
+            conversation.HasIndex(c => c.LfgGroupId);
             if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
             {
                 conversation.Property(c => c.CreatedAt)
@@ -577,6 +593,129 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                         v => v.ToUnixTimeMilliseconds(),
                         v => DateTimeOffset.FromUnixTimeMilliseconds(v));
                 message.Property(m => m.ReadAt)
+                    .HasConversion(
+                        v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
+                        v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
+            }
+        });
+
+        builder.Entity<LfgGroup>(group =>
+        {
+            group.HasKey(g => g.Id);
+            group.Property(g => g.Note).HasMaxLength(200);
+            group.Property(g => g.Status)
+                .HasConversion<string>()
+                .HasMaxLength(16)
+                .HasDefaultValue(LfgGroupStatus.Open)
+                .IsRequired();
+            group.Property(g => g.PlayStyle)
+                .HasConversion<string>()
+                .HasMaxLength(32);
+            group.HasOne(g => g.Creator)
+                .WithMany()
+                .HasForeignKey(g => g.CreatorUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            group.HasOne(g => g.Game)
+                .WithMany()
+                .HasForeignKey(g => g.GameId)
+                .OnDelete(DeleteBehavior.Restrict);
+            group.HasIndex(g => new { g.CreatorUserId, g.Status });
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                group.Property(g => g.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                group.Property(g => g.FilledAt)
+                    .HasConversion(
+                        v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
+                        v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
+                group.Property(g => g.CancelledAt)
+                    .HasConversion(
+                        v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
+                        v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
+            }
+        });
+
+        builder.Entity<LfgGroupMember>(member =>
+        {
+            member.HasKey(m => new { m.LfgGroupId, m.UserId });
+            member.HasOne(m => m.LfgGroup)
+                .WithMany(g => g.Members)
+                .HasForeignKey(m => m.LfgGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+            member.HasOne(m => m.User)
+                .WithMany()
+                .HasForeignKey(m => m.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                member.Property(m => m.JoinedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+            }
+        });
+
+        builder.Entity<LfgGroupApplication>(application =>
+        {
+            application.HasKey(a => a.Id);
+            application.Property(a => a.Message).HasMaxLength(500);
+            application.Property(a => a.Status)
+                .HasConversion<string>()
+                .HasMaxLength(16)
+                .HasDefaultValue(LfgApplicationStatus.Pending)
+                .IsRequired();
+            application.HasOne(a => a.LfgGroup)
+                .WithMany(g => g.Applications)
+                .HasForeignKey(a => a.LfgGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+            application.HasOne(a => a.Applicant)
+                .WithMany()
+                .HasForeignKey(a => a.ApplicantUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            application.HasIndex(a => new { a.LfgGroupId, a.ApplicantUserId });
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                application.Property(a => a.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                application.Property(a => a.RespondedAt)
+                    .HasConversion(
+                        v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
+                        v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
+            }
+        });
+
+        builder.Entity<LfgGroupInvite>(invite =>
+        {
+            invite.HasKey(i => i.Id);
+            invite.Property(i => i.Status)
+                .HasConversion<string>()
+                .HasMaxLength(16)
+                .HasDefaultValue(LfgInviteStatus.Pending)
+                .IsRequired();
+            invite.HasOne(i => i.LfgGroup)
+                .WithMany(g => g.Invites)
+                .HasForeignKey(i => i.LfgGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+            invite.HasOne(i => i.Inviter)
+                .WithMany()
+                .HasForeignKey(i => i.InviterUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            invite.HasOne(i => i.Invitee)
+                .WithMany()
+                .HasForeignKey(i => i.InviteeUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            invite.HasIndex(i => new { i.LfgGroupId, i.InviteeUserId });
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                invite.Property(i => i.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                invite.Property(i => i.RespondedAt)
                     .HasConversion(
                         v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
                         v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);

@@ -53,7 +53,8 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
                 n.PostId,
                 n.CommentId,
                 n.BadgeType?.ToString(),
-                n.BadgeLevel?.ToString());
+                n.BadgeLevel?.ToString(),
+                n.LfgGroupId);
         }).ToList();
 
         return new NotificationFeedResult(dtos, hasMore, unreadCount);
@@ -151,7 +152,8 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
                 notification.PostId,
                 notification.CommentId,
                 notification.BadgeType?.ToString(),
-                notification.BadgeLevel?.ToString());
+                notification.BadgeLevel?.ToString(),
+                notification.LfgGroupId);
             await notifier.NotifyNotificationCreatedAsync(dto, cancellationToken);
         }
 
@@ -197,7 +199,8 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
             notification.PostId,
             notification.CommentId,
             notification.BadgeType?.ToString(),
-            notification.BadgeLevel?.ToString());
+            notification.BadgeLevel?.ToString(),
+            notification.LfgGroupId);
         await notifier.NotifyNotificationCreatedAsync(dto, cancellationToken);
     }
 
@@ -238,7 +241,54 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
             notification.PostId,
             notification.CommentId,
             notification.BadgeType?.ToString(),
-            notification.BadgeLevel?.ToString());
+            notification.BadgeLevel?.ToString(),
+            notification.LfgGroupId);
+        await notifier.NotifyNotificationCreatedAsync(dto, cancellationToken);
+    }
+
+    public async Task CreateLfgApplicationNotificationAsync(
+        Guid actorUserId,
+        Guid recipientUserId,
+        Guid lfgGroupId,
+        CancellationToken cancellationToken)
+    {
+        if (actorUserId == recipientUserId)
+        {
+            return;
+        }
+
+        var actorProfile = await dbContext.UserProfiles
+            .AsNoTracking()
+            .FirstAsync(p => p.UserId == actorUserId, cancellationToken);
+
+        var notification = new Notification
+        {
+            Id = Guid.NewGuid(),
+            RecipientUserId = recipientUserId,
+            ActorUserId = actorUserId,
+            Type = NotificationType.LfgApplicationReceived,
+            PostId = null,
+            CommentId = null,
+            LfgGroupId = lfgGroupId,
+            IsRead = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        dbContext.Notifications.Add(notification);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var dto = new NotificationDto(
+            notification.Id,
+            notification.Type.ToString(),
+            notification.IsRead,
+            notification.CreatedAt,
+            new NotificationActorDto(actorProfile.UserId, actorProfile.Username, actorProfile.DisplayName, actorProfile.AvatarUrl),
+            notification.RecipientUserId,
+            notification.PostId,
+            notification.CommentId,
+            notification.BadgeType?.ToString(),
+            notification.BadgeLevel?.ToString(),
+            notification.LfgGroupId);
         await notifier.NotifyNotificationCreatedAsync(dto, cancellationToken);
     }
 }

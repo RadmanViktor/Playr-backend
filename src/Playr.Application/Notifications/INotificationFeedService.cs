@@ -43,4 +43,16 @@ public interface INotificationFeedService
         Playr.Domain.Badges.BadgeType badgeType,
         Playr.Domain.Badges.BadgeLevel badgeLevel,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Creates a <see cref="Playr.Domain.Notifications.NotificationType.LfgApplicationReceived"/>
+    /// notification for the group creator (<paramref name="recipientUserId"/>) when
+    /// <paramref name="actorUserId"/> applies to join their LFG group, and pushes it live via
+    /// <see cref="INotificationNotifier"/>.
+    /// </summary>
+    Task CreateLfgApplicationNotificationAsync(
+        Guid actorUserId,
+        Guid recipientUserId,
+        Guid lfgGroupId,
+        CancellationToken cancellationToken);
 }

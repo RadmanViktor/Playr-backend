@@ -133,6 +133,13 @@ public sealed class ProfileService(
 
     public async Task<ProfileDto> UpdateStatusAsync(Guid userId, UpdateStatusCommand command, CancellationToken cancellationToken)
     {
+        var hasOpenLfgGroup = await dbContext.LfgGroups.AsNoTracking()
+            .AnyAsync(g => g.CreatorUserId == userId && g.Status == Domain.Lfg.LfgGroupStatus.Open, cancellationToken);
+        if (hasOpenLfgGroup)
+        {
+            throw new InvalidOperationException("You cannot change your status while you have an open LFG group. Cancel it first.");
+        }
+
         string? note = null;
         if (command.Status == ProfileStatus.LookingForGame)
         {

@@ -96,15 +96,22 @@ public sealed class ConversationsController(IChatService chatService) : Controll
 
     private static ConversationResponse ToResponse(ConversationDto conversation) => new(
         conversation.Id,
-        new ChatParticipantResponse(
-            conversation.OtherParticipant.UserId,
-            conversation.OtherParticipant.Username,
-            conversation.OtherParticipant.DisplayName,
-            conversation.OtherParticipant.AvatarUrl),
+        conversation.Type.ToString(),
+        conversation.Title,
+        conversation.OtherParticipant is null
+            ? null
+            : new ChatParticipantResponse(
+                conversation.OtherParticipant.UserId,
+                conversation.OtherParticipant.Username,
+                conversation.OtherParticipant.DisplayName,
+                conversation.OtherParticipant.AvatarUrl),
         conversation.LastMessage,
         conversation.LastMessageAt,
         conversation.CreatedAt,
-        conversation.UpdatedAt);
+        conversation.UpdatedAt,
+        conversation.Participants
+            .Select(p => new ChatParticipantResponse(p.UserId, p.Username, p.DisplayName, p.AvatarUrl))
+            .ToList());
 
     private static ChatMessageResponse ToResponse(ChatMessageDto message) => new(
         message.Id,
