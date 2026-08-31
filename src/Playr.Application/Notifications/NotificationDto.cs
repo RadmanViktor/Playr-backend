@@ -14,4 +14,6 @@ public sealed record NotificationDto(
     NotificationActorDto Actor,
     Guid RecipientUserId,
     Guid? PostId,
-    Guid? CommentId);
+    Guid? CommentId,
+    string? BadgeType,
+    string? BadgeLevel);

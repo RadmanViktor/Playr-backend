@@ -23,5 +23,7 @@ public sealed record ProfileResponse(
     bool HasCompletedOnboarding,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
+    string? ActiveBadgeType,
+    string? ActiveBadgeLevel,
     string? RelationshipStatus = null,
     Guid? PendingInvitationId = null);

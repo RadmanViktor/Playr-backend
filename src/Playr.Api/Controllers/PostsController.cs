@@ -114,6 +114,8 @@ public sealed class PostsController(IPostService postService) : ControllerBase
         post.AuthorUsername,
         post.AuthorDisplayName,
         post.AuthorAvatarUrl,
+        post.AuthorActiveBadgeType,
+        post.AuthorActiveBadgeLevel,
         post.GameId,
         post.GameName,
         post.GameCoverImageUrl,

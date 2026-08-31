@@ -45,7 +45,7 @@ public sealed class CommentMentionsTests : IAsyncDisposable
         _dbContext.SaveChanges();
 
         _notifier = new SpyNotificationNotifier();
-        _service = new CommentService(_dbContext, new NotificationFeedService(_dbContext, _notifier));
+        _service = new CommentService(_dbContext, new NotificationFeedService(_dbContext, _notifier), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<CommentService>.Instance);
     }
 
     private void AddUser(Guid id, string username, string displayName)

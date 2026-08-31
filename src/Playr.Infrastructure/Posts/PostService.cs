@@ -1,15 +1,23 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Playr.Application.Badges;
 using Playr.Application.Common;
 using Playr.Application.Notifications;
 using Playr.Application.Posts;
 using Playr.Application.Storage;
+using Playr.Domain.Badges;
 using Playr.Domain.Notifications;
 using Playr.Domain.Posts;
 using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Posts;
 
-public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fileStorageService, INotificationFeedService notificationFeedService) : IPostService
+public sealed class PostService(
+    PlayrDbContext dbContext,
+    IFileStorageService fileStorageService,
+    INotificationFeedService notificationFeedService,
+    IBadgeService badgeService,
+    ILogger<PostService> logger) : IPostService
 {
     private const int MaxTextLength = 1000;
     private const int FeedSize = 50;
@@ -95,6 +103,17 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
         }
 
         var dtos = await MapToPostDtoAsync([post], authorId, cancellationToken);
+
+        try
+        {
+            await badgeService.CheckAndUnlockBadgesAsync(authorId, BadgeType.Poster, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort side effect: badge-unlock failures must not fail post creation.
+            logger.LogError(ex, "Failed to evaluate Poster badge for user {UserId}.", authorId);
+        }
+
         return dtos[0];
     }
 
@@ -331,6 +350,8 @@ public sealed class PostService(PlayrDbContext dbContext, IFileStorageService fi
                 profile.Username,
                 profile.DisplayName,
                 profile.AvatarUrl,
+                profile.ActiveBadgeType?.ToString(),
+                profile.ActiveBadgeLevel?.ToString(),
                 game.Id,
                 game.Name,
                 game.CoverImageUrl,

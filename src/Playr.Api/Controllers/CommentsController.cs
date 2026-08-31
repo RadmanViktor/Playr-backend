@@ -152,6 +152,8 @@ public sealed class CommentsController(ICommentService commentService) : Control
         comment.AuthorUsername,
         comment.AuthorDisplayName,
         comment.AuthorAvatarUrl,
+        comment.AuthorActiveBadgeType,
+        comment.AuthorActiveBadgeLevel,
         comment.TextContent,
         comment.CreatedAt,
         comment.UpdatedAt,

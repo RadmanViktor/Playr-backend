@@ -45,7 +45,7 @@ public sealed class PostMentionsTests : IAsyncDisposable
         _dbContext.SaveChanges();
 
         _notifier = new SpyNotificationNotifier();
-        _service = new PostService(_dbContext, new NoOpFileStorageService(), new NotificationFeedService(_dbContext, _notifier));
+        _service = new PostService(_dbContext, new NoOpFileStorageService(), new NotificationFeedService(_dbContext, _notifier), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<PostService>.Instance);
     }
 
     private void AddUser(Guid id, string username, string displayName)

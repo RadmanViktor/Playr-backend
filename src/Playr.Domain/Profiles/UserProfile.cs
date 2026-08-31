@@ -1,3 +1,4 @@
+using Playr.Domain.Badges;
 using Playr.Domain.Games;
 using Playr.Domain.Identity;
 
@@ -28,4 +29,6 @@ public sealed class UserProfile
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     public bool ChatSoundEnabled { get; set; } = true;
     public bool ChatBrowserNotificationsEnabled { get; set; } = true;
+    public BadgeType? ActiveBadgeType { get; set; }
+    public BadgeLevel? ActiveBadgeLevel { get; set; }
 }

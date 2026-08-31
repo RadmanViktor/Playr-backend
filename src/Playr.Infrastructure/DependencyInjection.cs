@@ -67,9 +67,11 @@ public static class DependencyInjection
         services.AddScoped<Playr.Application.Chat.IChatService, Playr.Infrastructure.Chat.ChatService>();
         services.AddScoped<Playr.Application.Notifications.INotificationPreferencesService, Playr.Infrastructure.Notifications.NotificationPreferencesService>();
         services.AddScoped<Playr.Application.Notifications.INotificationFeedService, Playr.Infrastructure.Notifications.NotificationFeedService>();
+        services.AddScoped<Playr.Application.Badges.IBadgeService, Playr.Infrastructure.Badges.BadgeService>();
         services.AddSingleton<Playr.Application.Storage.IFileStorageService, Playr.Infrastructure.Storage.LocalFileStorageService>();
 
         services.Configure<Playr.Application.Auth.AuthOptions>(configuration.GetSection(Playr.Application.Auth.AuthOptions.SectionName));
+        services.Configure<Playr.Application.Badges.AdminOptions>(configuration.GetSection(Playr.Application.Badges.AdminOptions.SectionName));
 
         services.Configure<SteamOptions>(configuration.GetSection(SteamOptions.SectionName));
         services.AddHttpClient(nameof(SteamOpenIdService));

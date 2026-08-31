@@ -9,6 +9,8 @@ public sealed record CommentDto(
     string AuthorUsername,
     string AuthorDisplayName,
     string? AuthorAvatarUrl,
+    string? AuthorActiveBadgeType,
+    string? AuthorActiveBadgeLevel,
     string TextContent,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,

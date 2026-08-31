@@ -357,6 +357,7 @@ public sealed class AuthServiceTests
             services.AddSingleton(Options.Create(new FrontendOptions { BaseUrl = "https://playr.test" }));
             services.AddSingleton(Options.Create(authOptions ?? new AuthOptions()));
             services.AddSingleton<IEmailSender>(emailSender);
+            services.AddSingleton<Playr.Application.Badges.IBadgeService, Playr.Application.Tests.Badges.NoOpBadgeService>();
             services.AddScoped<JwtTokenGenerator>();
             services.AddScoped<AuthService>();
 

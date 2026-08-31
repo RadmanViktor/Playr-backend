@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Playr.Domain.Badges;
 using Playr.Domain.Chat;
 using Playr.Domain.Comments;
 using Playr.Domain.Follows;
@@ -43,6 +44,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     public DbSet<SteamAccount> SteamAccounts => Set<SteamAccount>();
     public DbSet<SteamOwnedGame> SteamOwnedGames => Set<SteamOwnedGame>();
     public DbSet<SteamAchievement> SteamAchievements => Set<SteamAchievement>();
+    public DbSet<UserBadge> UserBadges => Set<UserBadge>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -76,6 +78,12 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             profile.Property(p => p.HasCompletedOnboarding).HasDefaultValue(false).IsRequired();
             profile.Property(p => p.ChatSoundEnabled).HasDefaultValue(true).IsRequired();
             profile.Property(p => p.ChatBrowserNotificationsEnabled).HasDefaultValue(true).IsRequired();
+            profile.Property(p => p.ActiveBadgeType)
+                .HasConversion<string>()
+                .HasMaxLength(32);
+            profile.Property(p => p.ActiveBadgeLevel)
+                .HasConversion<string>()
+                .HasMaxLength(16);
             profile.HasOne(p => p.LookingForGame)
                 .WithMany()
                 .HasForeignKey(p => p.LookingForGameId)
@@ -357,6 +365,12 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                 .HasForeignKey(n => n.ActorUserId)
                 .OnDelete(DeleteBehavior.Restrict);
             notification.HasIndex(n => new { n.RecipientUserId, n.CreatedAt });
+            notification.Property(n => n.BadgeType)
+                .HasConversion<string>()
+                .HasMaxLength(32);
+            notification.Property(n => n.BadgeLevel)
+                .HasConversion<string>()
+                .HasMaxLength(16);
             if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
             {
                 notification.Property(n => n.CreatedAt)
@@ -394,6 +408,32 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                     .HasConversion(
                         v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
                         v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
+            }
+        });
+
+        builder.Entity<UserBadge>(userBadge =>
+        {
+            userBadge.HasKey(b => b.Id);
+            userBadge.Property(b => b.Type)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .IsRequired();
+            userBadge.Property(b => b.Level)
+                .HasConversion<string>()
+                .HasMaxLength(16)
+                .HasDefaultValue(BadgeLevel.None)
+                .IsRequired();
+            userBadge.HasOne(b => b.User)
+                .WithMany()
+                .HasForeignKey(b => b.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            userBadge.HasIndex(b => new { b.UserId, b.Type }).IsUnique();
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                userBadge.Property(b => b.UnlockedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
             }
         });
 

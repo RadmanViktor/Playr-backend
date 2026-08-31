@@ -27,6 +27,7 @@ public class AuthEndpointConfigurationTests
             .Build();
 
         services.AddInfrastructure(configuration);
+        services.AddScoped<Playr.Application.Notifications.INotificationNotifier, NoOpNotificationNotifier>();
 
         using var provider = services.BuildServiceProvider();
 
@@ -166,5 +167,11 @@ public class AuthEndpointConfigurationTests
 
         public Task ResendConfirmationAsync(string email, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Auth service should not be called.");
+    }
+
+    private sealed class NoOpNotificationNotifier : Playr.Application.Notifications.INotificationNotifier
+    {
+        public Task NotifyNotificationCreatedAsync(Playr.Application.Notifications.NotificationDto notification, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 }

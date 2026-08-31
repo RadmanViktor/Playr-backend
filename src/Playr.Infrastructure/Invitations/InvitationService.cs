@@ -1,12 +1,20 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Playr.Application.Badges;
 using Playr.Application.Chat;
 using Playr.Application.Invitations;
+using Playr.Domain.Badges;
 using Playr.Domain.Invitations;
 using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Invitations;
 
-public sealed class InvitationService(PlayrDbContext dbContext, IChatService chatService, IInvitationNotifier invitationNotifier) : IInvitationService
+public sealed class InvitationService(
+    PlayrDbContext dbContext,
+    IChatService chatService,
+    IInvitationNotifier invitationNotifier,
+    IBadgeService badgeService,
+    ILogger<InvitationService> logger) : IInvitationService
 {
     private const int MaxMessageLength = 500;
 
@@ -115,6 +123,17 @@ public sealed class InvitationService(PlayrDbContext dbContext, IChatService cha
 
         var dto = await LoadDtoAsync(invitation.Id, cancellationToken);
         await invitationNotifier.NotifyInvitationUpdatedAsync(dto, cancellationToken);
+
+        try
+        {
+            await badgeService.CheckAndUnlockBadgesAsync(invitation.SenderUserId, BadgeType.Inviter, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort side effect: badge-unlock failures must not fail invitation acceptance.
+            logger.LogError(ex, "Failed to evaluate Inviter badge for user {UserId}.", invitation.SenderUserId);
+        }
+
         return dto;
     }
 

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Playr.Application.Auth;
+using Playr.Application.Badges;
 using Playr.Application.Email;
 using Playr.Domain.Identity;
 using Playr.Domain.Profiles;
@@ -19,6 +20,7 @@ public sealed class AuthService(
     IEmailSender emailSender,
     IOptions<FrontendOptions> frontendOptions,
     IOptions<AuthOptions> authOptions,
+    IBadgeService badgeService,
     ILogger<AuthService> logger) : IAuthService
 {
     private const string LoginFailureMessage = "Invalid username/email or password.";
@@ -73,6 +75,16 @@ public sealed class AuthService(
             await transaction.RollbackAsync(cancellationToken);
             await userManager.DeleteAsync(user);
             throw;
+        }
+
+        try
+        {
+            await badgeService.CheckFirstHundredUsersAsync(user.Id, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort: a badge-unlock failure must never fail registration itself.
+            logger.LogError(ex, "Failed to evaluate first-100-users badge for user {UserId}.", user.Id);
         }
 
         if (authOptions.Value.AutoConfirmEmailOnRegister)

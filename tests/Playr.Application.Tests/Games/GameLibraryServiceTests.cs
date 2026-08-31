@@ -25,7 +25,7 @@ public sealed class GameLibraryServiceTests : IAsyncDisposable
             .Options;
         _dbContext = new PlayrDbContext(options);
         _dbContext.Database.EnsureCreated();
-        _service = new GameLibraryService(_dbContext);
+        _service = new GameLibraryService(_dbContext, new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<GameLibraryService>.Instance);
     }
 
     [Fact]

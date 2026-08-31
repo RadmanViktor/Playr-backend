@@ -1,11 +1,17 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Playr.Application.Badges;
 using Playr.Application.Games;
+using Playr.Domain.Badges;
 using Playr.Domain.Games;
 using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Games;
 
-public sealed class GameLibraryService(PlayrDbContext dbContext) : IGameLibraryService
+public sealed class GameLibraryService(
+    PlayrDbContext dbContext,
+    IBadgeService badgeService,
+    ILogger<GameLibraryService> logger) : IGameLibraryService
 {
     private const int MaxReviewLength = 1000;
 
@@ -66,6 +72,16 @@ public sealed class GameLibraryService(PlayrDbContext dbContext) : IGameLibraryS
         entry.ReviewText = trimmedReview;
         entry.UpdatedAt = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await badgeService.CheckAndUnlockBadgesAsync(userId, BadgeType.GameCritic, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort side effect: badge-unlock failures must not fail rating a game.
+            logger.LogError(ex, "Failed to evaluate GameCritic badge for user {UserId}.", userId);
+        }
 
         return new GameLibraryEntryDto(
             entry.GameId, entry.Game.Name, entry.Game.CoverImageUrl, entry.Game.Genre,

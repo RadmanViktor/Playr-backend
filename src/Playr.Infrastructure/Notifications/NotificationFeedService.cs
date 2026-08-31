@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Playr.Application.Notifications;
+using Playr.Domain.Badges;
 using Playr.Domain.Notifications;
 using Playr.Infrastructure.Data;
 
@@ -50,7 +51,9 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
                 new NotificationActorDto(actor.UserId, actor.Username, actor.DisplayName, actor.AvatarUrl),
                 n.RecipientUserId,
                 n.PostId,
-                n.CommentId);
+                n.CommentId,
+                n.BadgeType?.ToString(),
+                n.BadgeLevel?.ToString());
         }).ToList();
 
         return new NotificationFeedResult(dtos, hasMore, unreadCount);
@@ -146,7 +149,9 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
                 actorDto,
                 notification.RecipientUserId,
                 notification.PostId,
-                notification.CommentId);
+                notification.CommentId,
+                notification.BadgeType?.ToString(),
+                notification.BadgeLevel?.ToString());
             await notifier.NotifyNotificationCreatedAsync(dto, cancellationToken);
         }
 
@@ -190,7 +195,50 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
             new NotificationActorDto(actorProfile.UserId, actorProfile.Username, actorProfile.DisplayName, actorProfile.AvatarUrl),
             notification.RecipientUserId,
             notification.PostId,
-            notification.CommentId);
+            notification.CommentId,
+            notification.BadgeType?.ToString(),
+            notification.BadgeLevel?.ToString());
+        await notifier.NotifyNotificationCreatedAsync(dto, cancellationToken);
+    }
+
+    public async Task CreateBadgeUnlockedNotificationAsync(
+        Guid userId,
+        BadgeType badgeType,
+        BadgeLevel badgeLevel,
+        CancellationToken cancellationToken)
+    {
+        var profile = await dbContext.UserProfiles
+            .AsNoTracking()
+            .FirstAsync(p => p.UserId == userId, cancellationToken);
+
+        var notification = new Notification
+        {
+            Id = Guid.NewGuid(),
+            RecipientUserId = userId,
+            ActorUserId = userId,
+            Type = NotificationType.BadgeUnlocked,
+            PostId = null,
+            CommentId = null,
+            BadgeType = badgeType,
+            BadgeLevel = badgeLevel,
+            IsRead = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        dbContext.Notifications.Add(notification);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var dto = new NotificationDto(
+            notification.Id,
+            notification.Type.ToString(),
+            notification.IsRead,
+            notification.CreatedAt,
+            new NotificationActorDto(profile.UserId, profile.Username, profile.DisplayName, profile.AvatarUrl),
+            notification.RecipientUserId,
+            notification.PostId,
+            notification.CommentId,
+            notification.BadgeType?.ToString(),
+            notification.BadgeLevel?.ToString());
         await notifier.NotifyNotificationCreatedAsync(dto, cancellationToken);
     }
 }

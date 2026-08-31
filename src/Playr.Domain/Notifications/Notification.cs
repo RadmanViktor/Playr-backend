@@ -1,3 +1,4 @@
+using Playr.Domain.Badges;
 using Playr.Domain.Identity;
 
 namespace Playr.Domain.Notifications;
@@ -12,6 +13,8 @@ public sealed class Notification
     public NotificationType Type { get; set; }
     public Guid? PostId { get; set; }
     public Guid? CommentId { get; set; }
+    public BadgeType? BadgeType { get; set; }
+    public BadgeLevel? BadgeLevel { get; set; }
     public bool IsRead { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }

@@ -102,7 +102,9 @@ public class ContractTests
             [],
             false,
             createdAt,
-            updatedAt);
+            updatedAt,
+            null,
+            null);
         var command = new UpdateProfileCommand(
             "Player",
             "bio",

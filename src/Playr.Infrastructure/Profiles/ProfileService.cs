@@ -284,6 +284,8 @@ public sealed class ProfileService(
         profile.HasCompletedOnboarding,
         profile.CreatedAt,
         profile.UpdatedAt,
+        profile.ActiveBadgeType?.ToString(),
+        profile.ActiveBadgeLevel?.ToString(),
         relationshipStatus,
         pendingInvitationId);
 

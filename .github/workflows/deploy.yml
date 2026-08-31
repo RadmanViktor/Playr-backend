@@ -60,6 +60,7 @@ jobs:
         env:
           ASPNETCORE_ENVIRONMENT: ${{ secrets.ASPNETCORE_ENVIRONMENT }}
           ASPNETCORE_URLS: ${{ secrets.ASPNETCORE_URLS }}
+          ADMIN__GRANTSECRET: ${{ secrets.ADMIN__GRANTSECRET }}
           CONNECTIONSTRINGS__DEFAULTCONNECTION: ${{ secrets.CONNECTIONSTRINGS__DEFAULTCONNECTION }}
           EMAIL__FROMADDRESS: ${{ secrets.EMAIL__FROMADDRESS }}
           EMAIL__FROMNAME: ${{ secrets.EMAIL__FROMNAME }}
@@ -115,6 +116,7 @@ jobs:
         env:
           ASPNETCORE_ENVIRONMENT: ${{ secrets.ASPNETCORE_ENVIRONMENT }}
           ASPNETCORE_URLS: ${{ secrets.ASPNETCORE_URLS }}
+          ADMIN__GRANTSECRET: ${{ secrets.ADMIN__GRANTSECRET }}
           CONNECTIONSTRINGS__DEFAULTCONNECTION: ${{ secrets.CONNECTIONSTRINGS__DEFAULTCONNECTION }}
           EMAIL__FROMADDRESS: ${{ secrets.EMAIL__FROMADDRESS }}
           EMAIL__FROMNAME: ${{ secrets.EMAIL__FROMNAME }}
@@ -142,6 +144,7 @@ jobs:
           # check couldn't say which secret was at fault.
           bad=''
           for name in ASPNETCORE_ENVIRONMENT ASPNETCORE_URLS CONNECTIONSTRINGS__DEFAULTCONNECTION \
+            ADMIN__GRANTSECRET \
             EMAIL__FROMADDRESS EMAIL__FROMNAME EMAIL__HOST EMAIL__PASSWORD EMAIL__PORT EMAIL__USERNAME EMAIL__USESTARTTLS \
             FILESTORAGE__ROOTPATH FRONTEND__BASEURL JWT__AUDIENCE JWT__EXPIRATIONMINUTES JWT__ISSUER JWT__SIGNINGKEY \
             RAWG__APIKEY STEAM__APIKEY STEAM__SYNCINTERVALHOURS; do
@@ -164,6 +167,7 @@ jobs:
             printf 'Jwt__Audience=%s\n' "$JWT__AUDIENCE"
             printf 'Jwt__SigningKey=%s\n' "$JWT__SIGNINGKEY"
             printf 'Jwt__ExpirationMinutes=%s\n' "$JWT__EXPIRATIONMINUTES"
+            printf 'Admin__GrantSecret=%s\n' "$ADMIN__GRANTSECRET"
             printf 'Steam__ApiKey=%s\n' "$STEAM__APIKEY"
             printf 'Steam__SyncIntervalHours=%s\n' "$STEAM__SYNCINTERVALHOURS"
             printf 'Rawg__ApiKey=%s\n' "$RAWG__APIKEY"
@@ -180,7 +184,7 @@ jobs:
 
           # Belt-and-braces: still confirm the final line count, in case two
           # values are missing content in a way that happens to still sum to 19.
-          expected=19
+          expected=20
           actual=$(wc -l < playr-api.env)
           if [ "$actual" -ne "$expected" ]; then
             echo "Environment file has $actual lines, expected $expected."

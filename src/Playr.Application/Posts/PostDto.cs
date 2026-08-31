@@ -14,6 +14,8 @@ public sealed record PostDto(
     string AuthorUsername,
     string AuthorDisplayName,
     string? AuthorAvatarUrl,
+    string? AuthorActiveBadgeType,
+    string? AuthorActiveBadgeLevel,
     Guid GameId,
     string GameName,
     string? GameCoverImageUrl,

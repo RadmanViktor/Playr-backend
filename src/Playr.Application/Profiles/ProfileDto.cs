@@ -24,5 +24,7 @@ public sealed record ProfileDto(
     bool HasCompletedOnboarding,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
+    string? ActiveBadgeType,
+    string? ActiveBadgeLevel,
     RelationshipStatus? RelationshipStatus = null,
     Guid? PendingInvitationId = null);

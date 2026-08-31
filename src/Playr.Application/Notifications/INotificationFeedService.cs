@@ -31,4 +31,16 @@ public interface INotificationFeedService
         Guid actorUserId,
         Guid recipientUserId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Creates a <see cref="Playr.Domain.Notifications.NotificationType.BadgeUnlocked"/>
+    /// notification for <paramref name="userId"/> (recipient and actor are the same user -
+    /// there's no third party involved in unlocking your own badge) and pushes it live via
+    /// <see cref="INotificationNotifier"/>.
+    /// </summary>
+    Task CreateBadgeUnlockedNotificationAsync(
+        Guid userId,
+        Playr.Domain.Badges.BadgeType badgeType,
+        Playr.Domain.Badges.BadgeLevel badgeLevel,
+        CancellationToken cancellationToken);
 }

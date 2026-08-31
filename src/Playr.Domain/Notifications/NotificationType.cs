@@ -4,5 +4,6 @@ public enum NotificationType
 {
     PostMention,
     CommentMention,
-    NewFollower
+    NewFollower,
+    BadgeUnlocked
 }

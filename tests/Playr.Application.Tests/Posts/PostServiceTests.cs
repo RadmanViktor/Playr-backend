@@ -49,7 +49,7 @@ public sealed class PostServiceTests : IAsyncDisposable
         _dbContext.Games.Add(new Game { Id = _gameId, Name = "Hollow Knight" });
         _dbContext.SaveChanges();
 
-        _service = new PostService(_dbContext, new NoOpFileStorageService(), new Playr.Application.Tests.Notifications.NoOpNotificationFeedService());
+        _service = new PostService(_dbContext, new NoOpFileStorageService(), new Playr.Application.Tests.Notifications.NoOpNotificationFeedService(), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<PostService>.Instance);
     }
 
     [Fact]

@@ -1,7 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Playr.Application.Badges;
 using Playr.Application.Comments;
 using Playr.Application.Common;
 using Playr.Application.Notifications;
+using Playr.Domain.Badges;
 using Playr.Domain.Comments;
 using Playr.Domain.Notifications;
 using Playr.Domain.Posts;
@@ -9,7 +12,11 @@ using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Comments;
 
-public sealed class CommentService(PlayrDbContext dbContext, INotificationFeedService notificationFeedService) : ICommentService
+public sealed class CommentService(
+    PlayrDbContext dbContext,
+    INotificationFeedService notificationFeedService,
+    IBadgeService badgeService,
+    ILogger<CommentService> logger) : ICommentService
 {
     private const int MaxTextLength = 500;
 
@@ -21,9 +28,8 @@ public sealed class CommentService(PlayrDbContext dbContext, INotificationFeedSe
         if (text.Length > MaxTextLength)
             throw new InvalidOperationException($"Comment text cannot be longer than {MaxTextLength} characters.");
 
-        var postExists = await dbContext.Posts.AnyAsync(p => p.Id == postId, cancellationToken);
-        if (!postExists)
-            throw new InvalidOperationException("Post was not found.");
+        var post = await dbContext.Posts.FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
+            ?? throw new InvalidOperationException("Post was not found.");
 
         var comment = new PostComment
         {
@@ -59,6 +65,20 @@ public sealed class CommentService(PlayrDbContext dbContext, INotificationFeedSe
         }
 
         var dtos = await MapToCommentDtoAsync([comment], authorId, cancellationToken);
+
+        if (post.AuthorId != authorId)
+        {
+            try
+            {
+                await badgeService.CheckAndUnlockBadgesAsync(authorId, BadgeType.Commentator, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Best-effort side effect: badge-unlock failures must not fail comment creation.
+                logger.LogError(ex, "Failed to evaluate Commentator badge for user {UserId}.", authorId);
+            }
+        }
+
         return dtos[0];
     }
 
@@ -240,6 +260,8 @@ public sealed class CommentService(PlayrDbContext dbContext, INotificationFeedSe
                 profile.Username,
                 profile.DisplayName,
                 profile.AvatarUrl,
+                profile.ActiveBadgeType?.ToString(),
+                profile.ActiveBadgeLevel?.ToString(),
                 comment.TextContent,
                 comment.CreatedAt,
                 comment.UpdatedAt,

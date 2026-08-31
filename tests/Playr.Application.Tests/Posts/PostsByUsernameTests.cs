@@ -47,7 +47,7 @@ public sealed class PostsByUsernameTests : IAsyncDisposable
             new Post { Id = Guid.NewGuid(), AuthorId = _userId, GameId = _gameId, TextContent = "Post B", Scope = PostScope.Profile, CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-1) }
         );
         _dbContext.SaveChanges();
-        _service = new PostService(_dbContext, new NoOpFileStorageService(), new Playr.Application.Tests.Notifications.NoOpNotificationFeedService());
+        _service = new PostService(_dbContext, new NoOpFileStorageService(), new Playr.Application.Tests.Notifications.NoOpNotificationFeedService(), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<PostService>.Instance);
     }
 
     [Fact]

@@ -63,7 +63,7 @@ public sealed class PostEditDeleteServiceTests : IAsyncDisposable
         _dbContext.Posts.Add(post);
         _dbContext.SaveChanges();
         _postId = post.Id;
-        _service = new PostService(_dbContext, new NoOpFileStorageService(), new Playr.Application.Tests.Notifications.NoOpNotificationFeedService());
+        _service = new PostService(_dbContext, new NoOpFileStorageService(), new Playr.Application.Tests.Notifications.NoOpNotificationFeedService(), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<PostService>.Instance);
     }
 
     [Fact]
