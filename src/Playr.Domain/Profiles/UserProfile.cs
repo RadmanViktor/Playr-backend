@@ -22,8 +22,6 @@ public sealed class UserProfile
     public Game? LookingForGame { get; set; }
     public PlayStyle? LookingForPlayStyle { get; set; }
     public string? LookingForGameNote { get; set; }
-    public PlaystylePreference? PlaystylePreference { get; set; }
-    public UsuallyPlayingWith? UsuallyPlayingWith { get; set; }
     public List<string> TypicalPlayTimes { get; set; } = [];
     public bool HasCompletedOnboarding { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

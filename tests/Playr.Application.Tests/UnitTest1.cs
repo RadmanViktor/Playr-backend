@@ -99,8 +99,6 @@ public class ContractTests
             null,
             null,
             null,
-            null,
-            null,
             [],
             false,
             createdAt,
@@ -112,7 +110,8 @@ public class ContractTests
             languages,
             platforms,
             genres,
-            externalLinks);
+            externalLinks,
+            []);
 
         profile.Username.Should().Be("player");
         profile.Languages.Should().BeEquivalentTo(languages);

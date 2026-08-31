@@ -27,6 +27,11 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         "FPS", "RPG", "Survival", "MMO", "Strategy", "Horror", "Racing", "Sports", "Co-op", "Indie",
     };
 
+    private static readonly HashSet<string> AllowedTypicalPlayTimes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Evenings", "Weekends", "Daytime", "Varies",
+    };
+
     public async Task<ProfileDto?> GetByUsernameAsync(string username, Guid? currentUserId, CancellationToken cancellationToken)
     {
         var normalized = username.ToUpperInvariant();
@@ -104,6 +109,7 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         var externalLinks = NormalizeExternalLinks(command.ExternalLinks);
         var bio = NormalizeOptionalText(command.Bio, "Bio", MaxBioLength);
         var region = NormalizeOptionalText(command.Region, "Region", MaxRegionLength);
+        var typicalPlayTimes = NormalizeTypicalPlayTimes(command.TypicalPlayTimes);
 
         var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken)
             ?? throw new InvalidOperationException("Profile was not found.");
@@ -115,6 +121,7 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         profile.Platforms = platforms;
         profile.Genres = genres;
         profile.ExternalLinks = externalLinks;
+        profile.TypicalPlayTimes = typicalPlayTimes;
         profile.UpdatedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -267,8 +274,6 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         profile.LookingForGame?.Name,
         profile.LookingForPlayStyle,
         profile.LookingForGameNote,
-        profile.PlaystylePreference,
-        profile.UsuallyPlayingWith,
         profile.TypicalPlayTimes,
         profile.HasCompletedOnboarding,
         profile.CreatedAt,
@@ -283,6 +288,18 @@ public sealed class ProfileService(PlayrDbContext dbContext, IFileStorageService
         if (invalid is not null)
         {
             throw new InvalidOperationException($"'{invalid}' is not a supported genre.");
+        }
+
+        return normalized;
+    }
+
+    private static List<string> NormalizeTypicalPlayTimes(IReadOnlyList<string>? values)
+    {
+        var normalized = NormalizeList(values, "TypicalPlayTimes");
+        var invalid = normalized.FirstOrDefault(value => !AllowedTypicalPlayTimes.Contains(value));
+        if (invalid is not null)
+        {
+            throw new InvalidOperationException($"'{invalid}' is not a supported typical play time.");
         }
 
         return normalized;

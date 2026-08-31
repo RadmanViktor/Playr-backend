@@ -87,7 +87,7 @@ public class ProfileEndpointConfigurationTests
         };
 
         var result = await controller.UpdateMe(
-            new UpdateProfileRequest("Player", null, null, null, null, null, null),
+            new UpdateProfileRequest("Player", null, null, null, null, null, null, null),
             CancellationToken.None);
 
         var unauthorized = result.Result.Should().BeOfType<UnauthorizedObjectResult>().Subject;

@@ -80,8 +80,6 @@ public sealed class OnboardingService(PlayrDbContext dbContext) : IOnboardingSer
 
         profile.Platforms = platforms;
         profile.Genres = genres;
-        profile.PlaystylePreference = command.PlaystylePreference;
-        profile.UsuallyPlayingWith = command.UsuallyPlayingWith;
         profile.TypicalPlayTimes = typicalPlayTimes;
         if (bio is not null)
         {

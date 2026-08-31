@@ -160,6 +160,32 @@ public sealed class ProfileServiceTests
             .WithMessage("External links cannot contain more than 10 items.");
     }
 
+    [Fact]
+    public async Task UpdateCurrentUserAsync_PersistsTypicalPlayTimes()
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with
+        {
+            TypicalPlayTimes = ["Evenings", "Weekends"],
+        };
+
+        var profile = await fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        profile.TypicalPlayTimes.Should().BeEquivalentTo(["Evenings", "Weekends"]);
+    }
+
+    [Fact]
+    public async Task UpdateCurrentUserAsync_WhenTypicalPlayTimeIsNotSupported_ThrowsInvalidOperationException()
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with { TypicalPlayTimes = ["Nighttime"] };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("'Nighttime' is not a supported typical play time.");
+    }
+
     [Theory]
     [InlineData("", "https://example.com", "External link keys are required.")]
     [InlineData("   ", "https://example.com", "External link keys are required.")]
@@ -418,7 +444,8 @@ public sealed class ProfileServiceTests
             ["English"],
             ["PC"],
             ["FPS"],
-            new Dictionary<string, string> { ["Steam"] = "https://example.com/player" });
+            new Dictionary<string, string> { ["Steam"] = "https://example.com/player" },
+            []);
 
         public async ValueTask DisposeAsync()
         {

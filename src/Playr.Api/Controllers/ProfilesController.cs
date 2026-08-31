@@ -45,7 +45,8 @@ public sealed class ProfilesController(
                     request.Languages ?? [],
                     request.Platforms ?? [],
                     request.Genres ?? [],
-                    request.ExternalLinks ?? new Dictionary<string, string>()),
+                    request.ExternalLinks ?? new Dictionary<string, string>(),
+                    request.TypicalPlayTimes ?? []),
                 cancellationToken);
 
             return Ok(ToResponse(profile));
@@ -286,8 +287,6 @@ public sealed class ProfilesController(
         profile.LookingForGameName,
         profile.LookingForPlayStyle,
         profile.LookingForGameNote,
-        profile.PlaystylePreference,
-        profile.UsuallyPlayingWith,
         profile.TypicalPlayTimes,
         profile.HasCompletedOnboarding,
         profile.CreatedAt,

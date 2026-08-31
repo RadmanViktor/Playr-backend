@@ -90,7 +90,8 @@ public sealed class HttpAuthProfileFlowTests : IClassFixture<PlayrWebApplication
             ["English"],
             ["PC"],
             ["FPS"],
-            new Dictionary<string, string> { ["Steam"] = "https://example.com/player" }));
+            new Dictionary<string, string> { ["Steam"] = "https://example.com/player" },
+            []));
         updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var updated = await updateResponse.Content.ReadFromJsonAsync<ProfileResponse>(JsonOptions);
         updated.Should().NotBeNull();

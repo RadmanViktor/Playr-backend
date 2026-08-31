@@ -39,8 +39,6 @@ public sealed class OnboardingController(IOnboardingService onboardingService) :
                 request.Genres ?? [],
                 request.GameIds ?? [],
                 (request.PlayingNow ?? []).Select(p => new PlayingNowItem(p.GameId, p.StatusText)).ToList(),
-                request.PlaystylePreference,
-                request.UsuallyPlayingWith,
                 request.TypicalPlayTimes ?? [],
                 request.Bio);
 

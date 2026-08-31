@@ -1,5 +1,3 @@
-using Playr.Domain.Profiles;
-
 namespace Playr.Application.Onboarding;
 
 public sealed record PlayingNowItem(Guid GameId, string? StatusText);
@@ -9,8 +7,6 @@ public sealed record CompleteOnboardingCommand(
     IReadOnlyList<string> Genres,
     IReadOnlyList<Guid> GameIds,
     IReadOnlyList<PlayingNowItem> PlayingNow,
-    PlaystylePreference? PlaystylePreference,
-    UsuallyPlayingWith? UsuallyPlayingWith,
     IReadOnlyList<string> TypicalPlayTimes,
     string? Bio);
 

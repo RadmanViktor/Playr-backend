@@ -9,4 +9,5 @@ public sealed record UpdateProfileRequest(
     IReadOnlyList<string>? Languages,
     IReadOnlyList<string>? Platforms,
     IReadOnlyList<string>? Genres,
-    IReadOnlyDictionary<string, string>? ExternalLinks);
+    IReadOnlyDictionary<string, string>? ExternalLinks,
+    IReadOnlyList<string>? TypicalPlayTimes);

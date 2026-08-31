@@ -20,8 +20,6 @@ public sealed record ProfileDto(
     string? LookingForGameName,
     PlayStyle? LookingForPlayStyle,
     string? LookingForGameNote,
-    PlaystylePreference? PlaystylePreference,
-    UsuallyPlayingWith? UsuallyPlayingWith,
     IReadOnlyList<string> TypicalPlayTimes,
     bool HasCompletedOnboarding,
     DateTimeOffset CreatedAt,
