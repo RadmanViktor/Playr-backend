@@ -201,7 +201,7 @@ Games, coffee and questionable Counter-Strike decisions.
 
 ---
 
-## Task 3 – Rebuild Profile Navigation
+## Task 3 – Rebuild Profile Navigation ✅ COMPLETED
 
 Change the profile tabs to:
 
