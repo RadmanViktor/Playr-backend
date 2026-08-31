@@ -31,4 +31,8 @@ public sealed class FriendService(PlayrDbContext dbContext) : IFriendService
             return new FriendDto(profile.UserId, profile.Username, profile.DisplayName, profile.AvatarUrl, friendship.CreatedAt);
         }).ToList();
     }
+
+    public Task<int> GetFriendsCountAsync(Guid userId, CancellationToken cancellationToken) =>
+        dbContext.Friendships.AsNoTracking()
+            .CountAsync(f => f.UserAId == userId || f.UserBId == userId, cancellationToken);
 }

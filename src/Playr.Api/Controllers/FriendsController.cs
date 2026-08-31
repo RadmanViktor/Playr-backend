@@ -23,6 +23,13 @@ public sealed class FriendsController(IFriendService friendService) : Controller
         return Ok(friends.Select(ToResponse).ToList());
     }
 
+    [HttpGet("{userId:guid}/count")]
+    public async Task<ActionResult<FriendsCountResponse>> GetFriendsCount(Guid userId, CancellationToken cancellationToken)
+    {
+        var count = await friendService.GetFriendsCountAsync(userId, cancellationToken);
+        return Ok(new FriendsCountResponse(count));
+    }
+
     private static FriendResponse ToResponse(FriendDto friend) => new(
         friend.UserId,
         friend.Username,
