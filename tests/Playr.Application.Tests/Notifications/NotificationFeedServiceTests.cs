@@ -124,6 +124,50 @@ public sealed class NotificationFeedServiceTests : IAsyncDisposable
         result.Items.Should().OnlyContain(n => n.IsRead);
     }
 
+    [Fact]
+    public async Task DeleteAsync_removes_the_notification_for_its_recipient()
+    {
+        await _service.CreateMentionNotificationsAsync(_actorId, [_friendId], NotificationType.PostMention, _postId, null, CancellationToken.None);
+        var notificationId = (await _dbContext.Notifications.SingleAsync()).Id;
+
+        await _service.DeleteAsync(_friendId, notificationId, CancellationToken.None);
+
+        (await _dbContext.Notifications.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_throws_when_notification_belongs_to_another_user()
+    {
+        await _service.CreateMentionNotificationsAsync(_actorId, [_friendId], NotificationType.PostMention, _postId, null, CancellationToken.None);
+        var notificationId = (await _dbContext.Notifications.SingleAsync()).Id;
+
+        var act = () => _service.DeleteAsync(_strangerId, notificationId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        (await _dbContext.Notifications.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task DeleteAllAsync_removes_every_notification_for_the_user()
+    {
+        await _service.CreateMentionNotificationsAsync(_actorId, [_friendId], NotificationType.PostMention, _postId, null, CancellationToken.None);
+        await _service.CreateMentionNotificationsAsync(_actorId, [_friendId], NotificationType.PostMention, Guid.NewGuid(), null, CancellationToken.None);
+
+        await _service.DeleteAllAsync(_friendId, CancellationToken.None);
+
+        (await _dbContext.Notifications.CountAsync(n => n.RecipientUserId == _friendId, CancellationToken.None)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task DeleteAllAsync_does_not_touch_other_users_notifications()
+    {
+        await _service.CreateMentionNotificationsAsync(_actorId, [_friendId], NotificationType.PostMention, _postId, null, CancellationToken.None);
+
+        await _service.DeleteAllAsync(_strangerId, CancellationToken.None);
+
+        (await _dbContext.Notifications.CountAsync()).Should().Be(1);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _dbContext.DisposeAsync();

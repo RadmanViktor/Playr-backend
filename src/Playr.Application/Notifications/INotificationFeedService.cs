@@ -5,6 +5,8 @@ public interface INotificationFeedService
     Task<NotificationFeedResult> GetPagedAsync(Guid userId, int skip, int take, CancellationToken cancellationToken);
     Task MarkReadAsync(Guid userId, Guid notificationId, CancellationToken cancellationToken);
     Task MarkAllReadAsync(Guid userId, CancellationToken cancellationToken);
+    Task DeleteAsync(Guid userId, Guid notificationId, CancellationToken cancellationToken);
+    Task DeleteAllAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Validates <paramref name="mentionedUserIds"/> (drops self-mentions and anyone who

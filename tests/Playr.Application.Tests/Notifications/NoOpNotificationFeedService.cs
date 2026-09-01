@@ -13,6 +13,12 @@ public sealed class NoOpNotificationFeedService : INotificationFeedService
     public Task MarkAllReadAsync(Guid userId, CancellationToken cancellationToken) =>
         Task.CompletedTask;
 
+    public Task DeleteAsync(Guid userId, Guid notificationId, CancellationToken cancellationToken) =>
+        Task.CompletedTask;
+
+    public Task DeleteAllAsync(Guid userId, CancellationToken cancellationToken) =>
+        Task.CompletedTask;
+
     public Task<IReadOnlyList<Guid>> CreateMentionNotificationsAsync(
         Guid actorUserId,
         IReadOnlyCollection<Guid> mentionedUserIds,

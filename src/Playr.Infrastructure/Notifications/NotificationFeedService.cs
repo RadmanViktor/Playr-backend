@@ -91,6 +91,31 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task DeleteAsync(Guid userId, Guid notificationId, CancellationToken cancellationToken)
+    {
+        var notification = await dbContext.Notifications
+            .FirstOrDefaultAsync(n => n.Id == notificationId && n.RecipientUserId == userId, cancellationToken)
+            ?? throw new InvalidOperationException("Notification was not found.");
+
+        dbContext.Notifications.Remove(notification);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteAllAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var notifications = await dbContext.Notifications
+            .Where(n => n.RecipientUserId == userId)
+            .ToListAsync(cancellationToken);
+
+        if (notifications.Count == 0)
+        {
+            return;
+        }
+
+        dbContext.Notifications.RemoveRange(notifications);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Guid>> CreateMentionNotificationsAsync(
         Guid actorUserId,
         IReadOnlyCollection<Guid> mentionedUserIds,

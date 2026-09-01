@@ -52,6 +52,33 @@ public sealed class NotificationsController(INotificationFeedService notificatio
         return NoContent();
     }
 
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+
+        try
+        {
+            await notificationFeedService.DeleteAsync(userId, id, cancellationToken);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete]
+    public async Task<IActionResult> DeleteAll(CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+
+        await notificationFeedService.DeleteAllAsync(userId, cancellationToken);
+        return NoContent();
+    }
+
     private static NotificationResponse ToResponse(NotificationDto notification) => new(
         notification.Id,
         notification.Type,
