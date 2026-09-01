@@ -7,5 +7,6 @@ public enum BadgeType
     GameCritic,
     Commentator,
     Inviter,
-    Creator
+    Creator,
+    Admin
 }
