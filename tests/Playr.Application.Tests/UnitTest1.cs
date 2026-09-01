@@ -136,6 +136,7 @@ public class ContractTests
             "UpdateCoverImagePositionAsync",
             "SetOfflineAsync",
             "SetOnlineIfOfflineAsync",
+            "ClearLookingForGameStatusAsync",
             "SearchAsync",
             "GetLookingForGamePlayersAsync");
     }
