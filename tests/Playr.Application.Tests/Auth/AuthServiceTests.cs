@@ -259,6 +259,67 @@ public sealed class AuthServiceTests
         (await fixture.UserManager.GetAccessFailedCountAsync(user)).Should().Be(0);
     }
 
+    [Fact]
+    public async Task ForgotPasswordAsync_ForUnknownEmail_DoesNothingAndDoesNotThrow()
+    {
+        await using var fixture = await AuthFixture.CreateAsync();
+
+        await fixture.Service.ForgotPasswordAsync("nobody@example.com", CancellationToken.None);
+
+        fixture.EmailSender.Sent.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_ForKnownEmail_SendsResetEmailWithLinkToFrontend()
+    {
+        await using var fixture = await AuthFixture.CreateAsync();
+        var user = await fixture.CreateConfirmedUserAsync("player", "player@example.com", "Password123");
+
+        await fixture.Service.ForgotPasswordAsync("player@example.com", CancellationToken.None);
+
+        fixture.EmailSender.Sent.Should().ContainSingle();
+        var message = fixture.EmailSender.Sent.Single();
+        message.To.Should().Be("player@example.com");
+        message.Subject.Should().Be(EmailTemplates.PasswordResetSubject);
+        message.Body.Should().Contain($"https://playr.test/reset-password?userId={user.Id}&amp;token=");
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WithTokenFromForgotPassword_ChangesThePassword()
+    {
+        await using var fixture = await AuthFixture.CreateAsync();
+        var user = await fixture.CreateConfirmedUserAsync("player", "player@example.com", "Password123");
+
+        await fixture.Service.ForgotPasswordAsync("player@example.com", CancellationToken.None);
+        var token = fixture.EmailSender.ExtractToken();
+
+        var reset = await fixture.Service.ResetPasswordAsync(user.Id, token, "NewPassword456", CancellationToken.None);
+
+        reset.Should().BeTrue();
+        (await fixture.UserManager.CheckPasswordAsync(user, "NewPassword456")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WithGarbageToken_ReturnsFalse()
+    {
+        await using var fixture = await AuthFixture.CreateAsync();
+        var user = await fixture.CreateConfirmedUserAsync("player", "player@example.com", "Password123");
+
+        var reset = await fixture.Service.ResetPasswordAsync(user.Id, "not-a-valid-token", "NewPassword456", CancellationToken.None);
+
+        reset.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WithUnknownUser_ReturnsFalse()
+    {
+        await using var fixture = await AuthFixture.CreateAsync();
+
+        var reset = await fixture.Service.ResetPasswordAsync(Guid.NewGuid(), "token", "NewPassword456", CancellationToken.None);
+
+        reset.Should().BeFalse();
+    }
+
     private sealed record SentEmail(string To, string Subject, string Body);
 
     private sealed class RecordingEmailSender : IEmailSender

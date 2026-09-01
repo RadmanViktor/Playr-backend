@@ -64,6 +64,25 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         return Ok(new { sent = true });
     }
 
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        await authService.ForgotPasswordAsync(request.Email, cancellationToken);
+
+        // Always reports success so the endpoint cannot reveal which accounts exist.
+        return Ok(new { sent = true });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var reset = await authService.ResetPasswordAsync(request.UserId, request.Token, request.NewPassword, cancellationToken);
+
+        return reset
+            ? Ok(new { reset = true })
+            : BadRequest(new { error = "This password reset link is invalid or has expired." });
+    }
+
     [Authorize]
     [HttpGet("me")]
     public async Task<ActionResult<UserResponse>> Me(CancellationToken cancellationToken)

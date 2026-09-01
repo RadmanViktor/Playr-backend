@@ -69,7 +69,9 @@ public class ContractTests
             "LoginAsync",
             "GetCurrentUserAsync",
             "ConfirmEmailAsync",
-            "ResendConfirmationAsync");
+            "ResendConfirmationAsync",
+            "ForgotPasswordAsync",
+            "ResetPasswordAsync");
     }
 
     [Fact]

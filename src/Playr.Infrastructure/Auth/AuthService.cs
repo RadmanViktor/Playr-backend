@@ -191,6 +191,64 @@ public sealed class AuthService(
         await SendConfirmationEmailAsync(user, cancellationToken);
     }
 
+    public async Task ForgotPasswordAsync(string email, CancellationToken cancellationToken)
+    {
+        var normalized = email.ToUpperInvariant();
+        var user = await userManager.Users.FirstOrDefaultAsync(u => u.NormalizedEmail == normalized, cancellationToken);
+
+        if (user is null)
+        {
+            // Silently succeed so the endpoint cannot be used to enumerate accounts.
+            return;
+        }
+
+        try
+        {
+            var token = await userManager.GeneratePasswordResetTokenAsync(user);
+            var encodedToken = Base64Url.EncodeToString(Encoding.UTF8.GetBytes(token));
+
+            var baseUrl = frontendOptions.Value.BaseUrl.TrimEnd('/');
+            var resetUrl = $"{baseUrl}/reset-password?userId={user.Id}&token={encodedToken}";
+
+            await emailSender.SendAsync(
+                user.Email!,
+                EmailTemplates.PasswordResetSubject,
+                EmailTemplates.PasswordResetBody(user.UserName!, resetUrl),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send password reset email to user {UserId}.", user.Id);
+        }
+    }
+
+    public async Task<bool> ResetPasswordAsync(Guid userId, string token, string newPassword, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return false;
+        }
+
+        var user = await userManager.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user is null)
+        {
+            return false;
+        }
+
+        if (!TryDecodeToken(token, out var decodedToken))
+        {
+            return false;
+        }
+
+        var result = await userManager.ResetPasswordAsync(user, decodedToken, newPassword);
+        if (!result.Succeeded)
+        {
+            logger.LogInformation("Password reset failed for user {UserId}.", userId);
+        }
+
+        return result.Succeeded;
+    }
+
     private async Task SendConfirmationEmailAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
         try

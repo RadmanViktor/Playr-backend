@@ -167,6 +167,12 @@ public class AuthEndpointConfigurationTests
 
         public Task ResendConfirmationAsync(string email, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Auth service should not be called.");
+
+        public Task ForgotPasswordAsync(string email, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Auth service should not be called.");
+
+        public Task<bool> ResetPasswordAsync(Guid userId, string token, string newPassword, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Auth service should not be called.");
     }
 
     private sealed class NoOpNotificationNotifier : Playr.Application.Notifications.INotificationNotifier
