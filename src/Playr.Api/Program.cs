@@ -26,6 +26,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<SteamLinkStateSigner>();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, ChatUserIdProvider>();
+builder.Services.AddSingleton<Playr.Api.Hubs.IUserConnectionTracker, Playr.Api.Hubs.UserConnectionTracker>();
 builder.Services.AddScoped<IChatNotifier, SignalRChatNotifier>();
 builder.Services.AddScoped<IInvitationNotifier, Playr.Api.Invitations.SignalRInvitationNotifier>();
 builder.Services.AddScoped<Playr.Application.Friends.IFriendRequestNotifier, Playr.Api.Friends.SignalRFriendRequestNotifier>();
