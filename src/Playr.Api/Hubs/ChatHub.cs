@@ -1,12 +1,18 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Playr.Api.Extensions;
 using Playr.Application.Profiles;
 
 namespace Playr.Api.Hubs;
 
 [Authorize]
-public sealed class ChatHub(IProfileService profileService, IUserConnectionTracker connectionTracker) : Hub
+public sealed class ChatHub(
+    IProfileService profileService,
+    IUserConnectionTracker connectionTracker,
+    IServiceScopeFactory serviceScopeFactory,
+    ILogger<ChatHub> logger) : Hub
 {
     // A page refresh closes the old SignalR connection and opens a new one a moment later.
     // Give reconnects this long to show up before treating the user as truly offline, so a
@@ -51,12 +57,20 @@ public sealed class ChatHub(IProfileService profileService, IUserConnectionTrack
             // period, the user is still online - leave their persisted status untouched.
             if (!connectionTracker.HasConnections(userId))
             {
-                await profileService.SetOfflineAsync(userId, CancellationToken.None);
+                // The scope this hub instance was constructed in is disposed as soon as
+                // OnDisconnectedAsync returns, which happens well before this delayed,
+                // fire-and-forget continuation runs. Resolve a fresh, scoped
+                // IProfileService here instead of reusing the (by now disposed) one
+                // injected into the constructor.
+                using var scope = serviceScopeFactory.CreateScope();
+                var scopedProfileService = scope.ServiceProvider.GetRequiredService<IProfileService>();
+                await scopedProfileService.SetOfflineAsync(userId, CancellationToken.None);
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Best-effort presence tracking - never let this fail the hub connection lifecycle.
+            logger.LogWarning(ex, "Failed to mark user {UserId} offline after disconnect grace period.", userId);
         }
     }
 }
