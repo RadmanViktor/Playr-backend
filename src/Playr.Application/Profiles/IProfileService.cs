@@ -13,6 +13,7 @@ public interface IProfileService
     Task<ProfileDto> UpdateCoverImagePositionAsync(Guid userId, double positionX, double positionY, CancellationToken cancellationToken);
     Task SetOfflineAsync(Guid userId, CancellationToken cancellationToken);
     Task SetOnlineIfOfflineAsync(Guid userId, CancellationToken cancellationToken);
+    Task ClearLookingForGameStatusAsync(Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<ProfileSearchResult>> SearchAsync(string query, CancellationToken cancellationToken);
     Task<IReadOnlyList<LookingForGamePlayerDto>> GetLookingForGamePlayersAsync(Guid currentUserId, CancellationToken cancellationToken);
 }

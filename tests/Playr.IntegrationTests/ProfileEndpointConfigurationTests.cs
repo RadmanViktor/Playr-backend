@@ -145,6 +145,9 @@ public class ProfileEndpointConfigurationTests
         public Task SetOnlineIfOfflineAsync(Guid userId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
 
+        public Task ClearLookingForGameStatusAsync(Guid userId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
+
         public Task<IReadOnlyList<ProfileSearchResult>> SearchAsync(string query, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
 

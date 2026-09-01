@@ -9,6 +9,7 @@ using Playr.Domain.Profiles;
 using Playr.Infrastructure.Chat;
 using Playr.Infrastructure.Data;
 using Playr.Infrastructure.Invitations;
+using Playr.Infrastructure.Profiles;
 
 namespace Playr.Application.Tests.Invitations;
 
@@ -87,7 +88,7 @@ public sealed class InvitationServiceTests
             var dbContext = new PlayrDbContext(options);
             await dbContext.Database.EnsureCreatedAsync();
             var chatService = new ChatService(dbContext, new NoOpChatNotifier(), new NoOpFileStorageService(), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<ChatService>.Instance);
-            var fixture = new InvitationFixture(connection, dbContext, new InvitationService(dbContext, chatService, new NoOpInvitationNotifier(), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<InvitationService>.Instance));
+            var fixture = new InvitationFixture(connection, dbContext, new InvitationService(dbContext, chatService, new NoOpInvitationNotifier(), new Playr.Application.Tests.Badges.NoOpBadgeService(), new ProfileService(dbContext, new Playr.Application.Tests.Posts.NoOpFileStorageService(), new Playr.Application.Tests.Profiles.NoOpProfilePresenceNotifier()), Microsoft.Extensions.Logging.Abstractions.NullLogger<InvitationService>.Instance));
             fixture.AddUser(fixture.SenderUserId, "sender", "Sender");
             fixture.AddUser(fixture.RecipientUserId, "recipient", "Recipient");
             await dbContext.SaveChangesAsync();

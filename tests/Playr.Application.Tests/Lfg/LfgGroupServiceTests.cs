@@ -12,6 +12,7 @@ using Playr.Domain.Profiles;
 using Playr.Infrastructure.Chat;
 using Playr.Infrastructure.Data;
 using Playr.Infrastructure.Lfg;
+using Playr.Infrastructure.Profiles;
 
 namespace Playr.Application.Tests.Lfg;
 
@@ -203,7 +204,7 @@ public sealed class LfgGroupServiceTests
             var dbContext = new PlayrDbContext(options);
             await dbContext.Database.EnsureCreatedAsync();
             var chatService = new ChatService(dbContext, new NoOpChatNotifier(), new NoOpFileStorageService(), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<ChatService>.Instance);
-            var service = new LfgGroupService(dbContext, chatService, new NoOpLfgGroupNotifier(), new NoOpNotificationFeedService());
+            var service = new LfgGroupService(dbContext, chatService, new NoOpLfgGroupNotifier(), new NoOpNotificationFeedService(), new ProfileService(dbContext, new Playr.Application.Tests.Posts.NoOpFileStorageService(), new Playr.Application.Tests.Profiles.NoOpProfilePresenceNotifier()));
             var fixture = new LfgFixture(connection, dbContext, chatService, service);
             fixture.AddUser(fixture.CreatorUserId, "creator", "Creator");
             fixture.AddUser(fixture.ApplicantUserId, "applicant", "Applicant");

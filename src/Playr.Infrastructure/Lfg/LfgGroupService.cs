@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Playr.Application.Chat;
 using Playr.Application.Lfg;
 using Playr.Application.Notifications;
+using Playr.Application.Profiles;
 using Playr.Domain.Games;
 using Playr.Domain.Identity;
 using Playr.Domain.Lfg;
@@ -14,7 +15,8 @@ public sealed class LfgGroupService(
     PlayrDbContext dbContext,
     IChatService chatService,
     ILfgGroupNotifier lfgGroupNotifier,
-    INotificationFeedService notificationFeedService) : ILfgGroupService
+    INotificationFeedService notificationFeedService,
+    IProfileService profileService) : ILfgGroupService
 {
     private const int MaxNoteLength = 200;
     private const int MaxPlayersWanted = 10;
@@ -174,6 +176,10 @@ public sealed class LfgGroupService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        // The applicant has now joined a group - if they were still showing as
+        // "Looking for game" themselves, reset them back to Online.
+        await profileService.ClearLookingForGameStatusAsync(application.ApplicantUserId, cancellationToken);
+
         await CheckAndFillGroupAsync(group.Id, cancellationToken);
 
         var dto = await LoadApplicationDtoAsync(application.Id, cancellationToken);
@@ -305,6 +311,10 @@ public sealed class LfgGroupService(
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        // The invitee has now joined a group - if they were still showing as
+        // "Looking for game" themselves, reset them back to Online.
+        await profileService.ClearLookingForGameStatusAsync(inviteeUserId, cancellationToken);
 
         await CheckAndFillGroupAsync(invite.LfgGroupId, cancellationToken);
 

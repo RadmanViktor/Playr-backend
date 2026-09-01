@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Playr.Application.Badges;
 using Playr.Application.Chat;
 using Playr.Application.Invitations;
+using Playr.Application.Profiles;
 using Playr.Domain.Badges;
 using Playr.Domain.Invitations;
 using Playr.Infrastructure.Data;
@@ -14,6 +15,7 @@ public sealed class InvitationService(
     IChatService chatService,
     IInvitationNotifier invitationNotifier,
     IBadgeService badgeService,
+    IProfileService profileService,
     ILogger<InvitationService> logger) : IInvitationService
 {
     private const int MaxMessageLength = 500;
@@ -123,6 +125,11 @@ public sealed class InvitationService(
 
         var dto = await LoadDtoAsync(invitation.Id, cancellationToken);
         await invitationNotifier.NotifyInvitationUpdatedAsync(dto, cancellationToken);
+
+        // The match is now resolved - whichever side (sender or recipient) was still
+        // showing as "Looking for game" should go back to Online.
+        await profileService.ClearLookingForGameStatusAsync(invitation.SenderUserId, cancellationToken);
+        await profileService.ClearLookingForGameStatusAsync(invitation.RecipientUserId, cancellationToken);
 
         try
         {

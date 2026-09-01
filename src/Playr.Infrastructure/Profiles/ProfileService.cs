@@ -224,6 +224,24 @@ public sealed class ProfileService(
         await profilePresenceNotifier.NotifyStatusChangedAsync(userId, ProfileStatus.Online, cancellationToken);
     }
 
+    public async Task ClearLookingForGameStatusAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
+        if (profile is null || profile.Status != ProfileStatus.LookingForGame)
+        {
+            return;
+        }
+
+        profile.Status = ProfileStatus.Online;
+        profile.LookingForGameId = null;
+        profile.LookingForPlayStyle = null;
+        profile.LookingForGameNote = null;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await profilePresenceNotifier.NotifyStatusChangedAsync(userId, ProfileStatus.Online, cancellationToken);
+    }
+
     public async Task<ProfileDto> UpdateAvatarAsync(Guid userId, string baseUrl, FileUploadInput avatar, CancellationToken cancellationToken)
     {
         var extension = ImageUploadValidator.Validate(avatar);
