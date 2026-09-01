@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -12,8 +13,14 @@ public sealed record RawgGameSearchResult(long RawgId, string Name, string? Cove
 /// <summary>
 /// Typed client for the RAWG Video Games Database API (https://api.rawg.io/api).
 /// </summary>
-public sealed class RawgApiClient(HttpClient httpClient, IOptions<RawgOptions> options, ILogger<RawgApiClient> logger)
+public sealed class RawgApiClient(
+    HttpClient httpClient,
+    IOptions<RawgOptions> options,
+    IMemoryCache cache,
+    ILogger<RawgApiClient> logger)
 {
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(10);
+
     private readonly RawgOptions _options = options.Value;
 
     /// <summary>
@@ -21,9 +28,19 @@ public sealed class RawgApiClient(HttpClient httpClient, IOptions<RawgOptions> o
     /// null/blank, returns a default set of popular games instead (used to give the game picker
     /// something useful to show before the user has typed anything).
     /// </summary>
+    /// <remarks>
+    /// Results are cached in-memory per normalized query for <see cref="CacheDuration"/> so repeated
+    /// searches (across users, or the same user re-searching) don't need a fresh round trip to RAWG.
+    /// </remarks>
     public async Task<IReadOnlyList<RawgGameSearchResult>> SearchGamesAsync(string query, CancellationToken cancellationToken)
     {
         WarnIfApiKeyMissing();
+
+        var cacheKey = $"rawg-search:{query.Trim().ToLowerInvariant()}";
+        if (cache.TryGetValue(cacheKey, out IReadOnlyList<RawgGameSearchResult>? cached) && cached is not null)
+        {
+            return cached;
+        }
 
         var url = string.IsNullOrWhiteSpace(query)
             ? $"/api/games?key={_options.ApiKey}&ordering=-added&page_size=10"
@@ -44,11 +61,15 @@ public sealed class RawgApiClient(HttpClient httpClient, IOptions<RawgOptions> o
             return [];
         }
 
-        return results.Select(r => new RawgGameSearchResult(
+        IReadOnlyList<RawgGameSearchResult> mapped = results.Select(r => new RawgGameSearchResult(
             r.Id,
             r.Name,
             r.BackgroundImage,
             r.Genres is { Count: > 0 } ? string.Join(", ", r.Genres.Select(g => g.Name)) : null)).ToList();
+
+        cache.Set(cacheKey, mapped, CacheDuration);
+
+        return mapped;
     }
 
     private bool _hasWarnedAboutApiKey;

@@ -84,6 +84,7 @@ public static class DependencyInjection
         services.AddScoped<Playr.Application.Steam.ISteamService, SteamService>();
         services.AddHostedService<SteamSyncBackgroundService>();
 
+        services.AddMemoryCache();
         services.Configure<RawgOptions>(configuration.GetSection(RawgOptions.SectionName));
         services.AddHttpClient<RawgApiClient>(client =>
         {

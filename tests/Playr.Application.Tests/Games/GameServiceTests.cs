@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Playr.Application.Games;
@@ -30,6 +31,7 @@ public sealed class GameServiceTests : IAsyncDisposable
         var rawgApiClient = new RawgApiClient(
             new HttpClient { BaseAddress = new Uri("https://api.rawg.io") },
             Options.Create(new RawgOptions()),
+            new MemoryCache(new MemoryCacheOptions()),
             NullLogger<RawgApiClient>.Instance);
         _service = new GameService(_dbContext, rawgApiClient);
     }
