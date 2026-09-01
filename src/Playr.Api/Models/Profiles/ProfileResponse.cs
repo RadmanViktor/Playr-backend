@@ -9,6 +9,8 @@ public sealed record ProfileResponse(
     string? Bio,
     string? AvatarUrl,
     string? CoverImageUrl,
+    double CoverImagePositionX,
+    double CoverImagePositionY,
     string? Region,
     IReadOnlyList<string> Languages,
     IReadOnlyList<string> Platforms,

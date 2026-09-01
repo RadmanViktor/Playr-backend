@@ -70,6 +70,8 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             profile.Property(p => p.Bio).HasMaxLength(500);
             profile.Property(p => p.AvatarUrl).HasMaxLength(500);
             profile.Property(p => p.CoverImageUrl).HasMaxLength(500);
+            profile.Property(p => p.CoverImagePositionX).HasDefaultValue(50.0).IsRequired();
+            profile.Property(p => p.CoverImagePositionY).HasDefaultValue(50.0).IsRequired();
             profile.Property(p => p.Region).HasMaxLength(64);
             profile.Property(p => p.Status)
                 .HasConversion<string>()

@@ -13,6 +13,8 @@ public sealed class UserProfile
     public string? Bio { get; set; }
     public string? AvatarUrl { get; set; }
     public string? CoverImageUrl { get; set; }
+    public double CoverImagePositionX { get; set; } = 50;
+    public double CoverImagePositionY { get; set; } = 50;
     public string? Region { get; set; }
     public List<string> Languages { get; set; } = [];
     public List<string> Platforms { get; set; } = [];

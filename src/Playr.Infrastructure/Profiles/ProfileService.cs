@@ -264,6 +264,26 @@ public sealed class ProfileService(
         }
 
         profile.CoverImageUrl = newCoverImageUrl;
+        profile.CoverImagePositionX = 50;
+        profile.CoverImagePositionY = 50;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ToDto(profile);
+    }
+
+    public async Task<ProfileDto> UpdateCoverImagePositionAsync(Guid userId, double positionX, double positionY, CancellationToken cancellationToken)
+    {
+        if (positionX is < 0 or > 100 || positionY is < 0 or > 100)
+        {
+            throw new InvalidOperationException("Cover image position must be between 0 and 100.");
+        }
+
+        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken)
+            ?? throw new InvalidOperationException("Profile was not found.");
+
+        profile.CoverImagePositionX = positionX;
+        profile.CoverImagePositionY = positionY;
         profile.UpdatedAt = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -277,6 +297,8 @@ public sealed class ProfileService(
         profile.Bio,
         profile.AvatarUrl,
         profile.CoverImageUrl,
+        profile.CoverImagePositionX,
+        profile.CoverImagePositionY,
         profile.Region,
         profile.Languages,
         profile.Platforms,

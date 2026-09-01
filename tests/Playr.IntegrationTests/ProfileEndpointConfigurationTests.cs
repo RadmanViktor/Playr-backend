@@ -136,6 +136,9 @@ public class ProfileEndpointConfigurationTests
         public Task<ProfileDto> UpdateCoverImageAsync(Guid userId, string baseUrl, Playr.Application.Common.FileUploadInput coverImage, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
 
+        public Task<ProfileDto> UpdateCoverImagePositionAsync(Guid userId, double positionX, double positionY, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Profile service should not be called.");
+
         public Task SetOfflineAsync(Guid userId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
 

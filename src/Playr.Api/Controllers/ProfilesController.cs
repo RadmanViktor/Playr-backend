@@ -126,6 +126,26 @@ public sealed class ProfilesController(
         }
     }
 
+    [Authorize]
+    [HttpPatch("me/cover-image-position")]
+    public async Task<ActionResult<ProfileResponse>> UpdateCoverImagePosition(UpdateCoverImagePositionRequest request, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        try
+        {
+            var profile = await profileService.UpdateCoverImagePositionAsync(userId, request.PositionX, request.PositionY, cancellationToken);
+            return Ok(ToResponse(profile));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpGet("{username}/posts")]
     public async Task<ActionResult<IReadOnlyList<PostResponse>>> GetPostsByUsername(
         string username, CancellationToken cancellationToken)
@@ -337,6 +357,8 @@ public sealed class ProfilesController(
         profile.Bio,
         profile.AvatarUrl,
         profile.CoverImageUrl,
+        profile.CoverImagePositionX,
+        profile.CoverImagePositionY,
         profile.Region,
         profile.Languages,
         profile.Platforms,
