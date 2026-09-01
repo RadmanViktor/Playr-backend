@@ -86,7 +86,7 @@ public sealed class InvitationServiceTests
                 .Options;
             var dbContext = new PlayrDbContext(options);
             await dbContext.Database.EnsureCreatedAsync();
-            var chatService = new ChatService(dbContext, new NoOpChatNotifier(), new NoOpFileStorageService());
+            var chatService = new ChatService(dbContext, new NoOpChatNotifier(), new NoOpFileStorageService(), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<ChatService>.Instance);
             var fixture = new InvitationFixture(connection, dbContext, new InvitationService(dbContext, chatService, new NoOpInvitationNotifier(), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<InvitationService>.Instance));
             fixture.AddUser(fixture.SenderUserId, "sender", "Sender");
             fixture.AddUser(fixture.RecipientUserId, "recipient", "Recipient");

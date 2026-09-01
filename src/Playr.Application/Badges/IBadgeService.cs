@@ -42,4 +42,13 @@ public interface IBadgeService
     /// this badge at this level or higher.
     /// </summary>
     Task GrantBadgeAsync(Guid userId, BadgeType type, BadgeLevel level, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One-time, lazily-evaluated check: if <paramref name="userId"/>'s account is at least a
+    /// year old, unlocks <see cref="BadgeType.Veteran"/> (Gold). Intended to be called
+    /// opportunistically (e.g. whenever the user fetches their own badges) rather than on a
+    /// schedule, since there is no login-timestamp tracking to hook into. Never throws for
+    /// "not old enough yet".
+    /// </summary>
+    Task CheckVeteranStatusAsync(Guid userId, CancellationToken cancellationToken);
 }

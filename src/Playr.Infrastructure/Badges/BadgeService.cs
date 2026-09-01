@@ -99,6 +99,22 @@ public sealed class BadgeService(PlayrDbContext dbContext, INotificationFeedServ
         await UnlockIfHigherAsync(userId, type, level, cancellationToken);
     }
 
+    public async Task CheckVeteranStatusAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var createdAt = await dbContext.Users
+            .AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => (DateTimeOffset?)u.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (createdAt is null || DateTimeOffset.UtcNow - createdAt.Value < TimeSpan.FromDays(365))
+        {
+            return;
+        }
+
+        await UnlockIfHigherAsync(userId, BadgeType.Veteran, BadgeLevel.Gold, cancellationToken);
+    }
+
     private async Task<int> ComputeStatAsync(Guid userId, BadgeType type, CancellationToken cancellationToken) => type switch
     {
         BadgeType.Poster => await dbContext.Posts.CountAsync(p => p.AuthorId == userId, cancellationToken),
@@ -110,6 +126,14 @@ public sealed class BadgeService(PlayrDbContext dbContext, INotificationFeedServ
             .CountAsync(x => x.p.AuthorId != userId, cancellationToken),
         BadgeType.Inviter => await dbContext.Invitations.CountAsync(
             i => i.SenderUserId == userId && i.Status == Domain.Invitations.InvitationStatus.Accepted, cancellationToken),
+        BadgeType.Supporter => await dbContext.PostLikes.CountAsync(l => l.UserId == userId, cancellationToken),
+        BadgeType.Popular => await dbContext.PostLikes.CountAsync(
+            l => dbContext.Posts.Any(p => p.Id == l.PostId && p.AuthorId == userId), cancellationToken),
+        BadgeType.Socialite => await dbContext.Friendships.CountAsync(
+            f => f.UserAId == userId || f.UserBId == userId, cancellationToken),
+        BadgeType.Chatterbox => await dbContext.ChatMessages.CountAsync(m => m.SenderUserId == userId, cancellationToken),
+        BadgeType.Collector => await dbContext.UserGameLibraryEntries.CountAsync(e => e.UserId == userId, cancellationToken),
+        BadgeType.Reactor => await dbContext.CommentReactions.CountAsync(r => r.UserId == userId, cancellationToken),
         _ => 0,
     };
 

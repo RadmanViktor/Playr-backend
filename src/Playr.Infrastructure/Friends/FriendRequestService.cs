@@ -1,11 +1,18 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Playr.Application.Badges;
 using Playr.Application.Friends;
+using Playr.Domain.Badges;
 using Playr.Domain.Friendships;
 using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Friends;
 
-public sealed class FriendRequestService(PlayrDbContext dbContext, IFriendRequestNotifier friendRequestNotifier) : IFriendRequestService
+public sealed class FriendRequestService(
+    PlayrDbContext dbContext,
+    IFriendRequestNotifier friendRequestNotifier,
+    IBadgeService badgeService,
+    ILogger<FriendRequestService> logger) : IFriendRequestService
 {
     public async Task<FriendRequestDto> SendAsync(Guid senderUserId, SendFriendRequestCommand command, CancellationToken cancellationToken)
     {
@@ -94,6 +101,7 @@ public sealed class FriendRequestService(PlayrDbContext dbContext, IFriendReques
         request.Status = FriendRequestStatus.Accepted;
         request.RespondedAt = DateTimeOffset.UtcNow;
 
+        var becameFriends = false;
         if (!await AreFriendsAsync(request.SenderUserId, request.RecipientUserId, cancellationToken))
         {
             var (userAId, userBId) = OrderPair(request.SenderUserId, request.RecipientUserId);
@@ -104,9 +112,25 @@ public sealed class FriendRequestService(PlayrDbContext dbContext, IFriendReques
                 UserBId = userBId,
                 CreatedAt = DateTimeOffset.UtcNow
             });
+            becameFriends = true;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (becameFriends)
+        {
+            try
+            {
+                await badgeService.CheckAndUnlockBadgesAsync(request.SenderUserId, BadgeType.Socialite, cancellationToken);
+                await badgeService.CheckAndUnlockBadgesAsync(request.RecipientUserId, BadgeType.Socialite, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Best-effort side effect: badge-unlock failures must not fail accepting a friend request.
+                logger.LogError(ex, "Failed to evaluate Socialite badge for friend request {FriendRequestId}.", request.Id);
+            }
+        }
+
         var acceptedDto = await LoadDtoAsync(request.Id, cancellationToken);
         await friendRequestNotifier.NotifyFriendRequestUpdatedAsync(acceptedDto, cancellationToken);
         return acceptedDto;

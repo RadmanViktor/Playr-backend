@@ -202,7 +202,7 @@ public sealed class LfgGroupServiceTests
                 .Options;
             var dbContext = new PlayrDbContext(options);
             await dbContext.Database.EnsureCreatedAsync();
-            var chatService = new ChatService(dbContext, new NoOpChatNotifier(), new NoOpFileStorageService());
+            var chatService = new ChatService(dbContext, new NoOpChatNotifier(), new NoOpFileStorageService(), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<ChatService>.Instance);
             var service = new LfgGroupService(dbContext, chatService, new NoOpLfgGroupNotifier(), new NoOpNotificationFeedService());
             var fixture = new LfgFixture(connection, dbContext, chatService, service);
             fixture.AddUser(fixture.CreatorUserId, "creator", "Creator");

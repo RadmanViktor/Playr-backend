@@ -19,4 +19,7 @@ public sealed class NoOpBadgeService : IBadgeService
 
     public Task GrantBadgeAsync(Guid userId, BadgeType type, BadgeLevel level, CancellationToken cancellationToken) =>
         Task.CompletedTask;
+
+    public Task CheckVeteranStatusAsync(Guid userId, CancellationToken cancellationToken) =>
+        Task.CompletedTask;
 }

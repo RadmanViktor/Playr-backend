@@ -145,6 +145,7 @@ public sealed class CommentService(
         var existing = await dbContext.CommentReactions
             .FirstOrDefaultAsync(r => r.CommentId == comment.Id && r.UserId == userId, cancellationToken);
 
+        var isNewReaction = existing is null;
         if (existing is null)
         {
             dbContext.CommentReactions.Add(new CommentReaction
@@ -166,6 +167,20 @@ public sealed class CommentService(
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (isNewReaction)
+        {
+            try
+            {
+                await badgeService.CheckAndUnlockBadgesAsync(userId, BadgeType.Reactor, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Best-effort side effect: badge-unlock failures must not fail reacting to a comment.
+                logger.LogError(ex, "Failed to evaluate Reactor badge for user {UserId}.", userId);
+            }
+        }
+
         return await BuildReactionSummaryAsync(comment.Id, userId, cancellationToken);
     }
 

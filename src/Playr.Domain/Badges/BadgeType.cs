@@ -8,5 +8,14 @@ public enum BadgeType
     Commentator,
     Inviter,
     Creator,
-    Admin
+    Admin,
+    Supporter,
+    Popular,
+    Socialite,
+    Chatterbox,
+    Collector,
+    Reactor,
+    Trailblazer,
+    NightOwl,
+    Veteran
 }

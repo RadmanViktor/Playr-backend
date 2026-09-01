@@ -50,6 +50,16 @@ public sealed class GameLibraryService(
         dbContext.UserGameLibraryEntries.Add(entry);
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        try
+        {
+            await badgeService.CheckAndUnlockBadgesAsync(userId, BadgeType.Collector, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort side effect: badge-unlock failures must not fail adding a game.
+            logger.LogError(ex, "Failed to evaluate Collector badge for user {UserId}.", userId);
+        }
+
         return new GameLibraryEntryDto(game.Id, game.Name, game.CoverImageUrl, game.Genre, null, null, now, now);
     }
 

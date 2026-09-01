@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Playr.Api.Extensions;
 using Playr.Api.Models.Badges;
@@ -11,7 +12,10 @@ namespace Playr.Api.Controllers;
 [ApiController]
 [Route("api/badges")]
 [Authorize]
-public sealed class BadgesController(IBadgeService badgeService, IOptions<AdminOptions> adminOptions) : ControllerBase
+public sealed class BadgesController(
+    IBadgeService badgeService,
+    IOptions<AdminOptions> adminOptions,
+    ILogger<BadgesController> logger) : ControllerBase
 {
     [HttpGet("me")]
     public async Task<ActionResult<UserBadgesResponse>> GetMine(CancellationToken cancellationToken)
@@ -19,6 +23,16 @@ public sealed class BadgesController(IBadgeService badgeService, IOptions<AdminO
         if (!User.TryGetUserId(out var userId))
         {
             return Unauthorized(new { error = "User id claim is missing or invalid." });
+        }
+
+        try
+        {
+            await badgeService.CheckVeteranStatusAsync(userId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort side effect: badge-unlock failures must not fail fetching badges.
+            logger.LogError(ex, "Failed to evaluate Veteran badge for user {UserId}.", userId);
         }
 
         var badges = await badgeService.GetBadgesAsync(userId, cancellationToken);

@@ -114,7 +114,7 @@ public sealed class ChatServiceTests
                 .Options;
             var dbContext = new PlayrDbContext(options);
             await dbContext.Database.EnsureCreatedAsync();
-            var fixture = new ChatFixture(connection, dbContext, new ChatService(dbContext, new NoOpChatNotifier(), new NoOpFileStorageService()));
+            var fixture = new ChatFixture(connection, dbContext, new ChatService(dbContext, new NoOpChatNotifier(), new NoOpFileStorageService(), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<ChatService>.Instance));
             fixture.AddUser(fixture.CurrentUserId, "player", "Player");
             fixture.AddUser(fixture.OtherUserId, "friend", "Friend");
             await dbContext.SaveChangesAsync();

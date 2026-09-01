@@ -114,6 +114,26 @@ public sealed class PostService(
             logger.LogError(ex, "Failed to evaluate Poster badge for user {UserId}.", authorId);
         }
 
+        try
+        {
+            var postCount = await dbContext.Posts.CountAsync(p => p.AuthorId == authorId, cancellationToken);
+            if (postCount == 1)
+            {
+                await badgeService.GrantBadgeAsync(authorId, BadgeType.Trailblazer, BadgeLevel.Gold, cancellationToken);
+            }
+
+            var hourUtc = post.CreatedAt.UtcDateTime.Hour;
+            if (hourUtc is >= 0 and < 5)
+            {
+                await badgeService.GrantBadgeAsync(authorId, BadgeType.NightOwl, BadgeLevel.Gold, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Best-effort side effect: badge-unlock failures must not fail post creation.
+            logger.LogError(ex, "Failed to evaluate Trailblazer/NightOwl badge for user {UserId}.", authorId);
+        }
+
         return dtos[0];
     }
 
@@ -252,9 +272,8 @@ public sealed class PostService(
 
     public async Task<(int LikesCount, bool Liked)> ToggleLikeAsync(Guid postId, Guid userId, CancellationToken cancellationToken)
     {
-        var postExists = await dbContext.Posts.AnyAsync(p => p.Id == postId, cancellationToken);
-        if (!postExists)
-            throw new InvalidOperationException("Post was not found.");
+        var post = await dbContext.Posts.FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
+            ?? throw new InvalidOperationException("Post was not found.");
 
         var existingLike = await dbContext.PostLikes
             .FirstOrDefaultAsync(l => l.PostId == postId && l.UserId == userId, cancellationToken);
@@ -271,6 +290,20 @@ public sealed class PostService(
             liked = false;
         }
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (liked)
+        {
+            try
+            {
+                await badgeService.CheckAndUnlockBadgesAsync(userId, BadgeType.Supporter, cancellationToken);
+                await badgeService.CheckAndUnlockBadgesAsync(post.AuthorId, BadgeType.Popular, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Best-effort side effect: badge-unlock failures must not fail liking a post.
+                logger.LogError(ex, "Failed to evaluate Supporter/Popular badge for post {PostId}.", postId);
+            }
+        }
 
         var likesCount = await dbContext.PostLikes.CountAsync(l => l.PostId == postId, cancellationToken);
         return (likesCount, liked);

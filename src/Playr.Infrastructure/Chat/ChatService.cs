@@ -1,12 +1,20 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Playr.Application.Badges;
 using Playr.Application.Chat;
 using Playr.Application.Storage;
+using Playr.Domain.Badges;
 using Playr.Domain.Chat;
 using Playr.Infrastructure.Data;
 
 namespace Playr.Infrastructure.Chat;
 
-public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNotifier, IFileStorageService fileStorageService) : IChatService
+public sealed class ChatService(
+    PlayrDbContext dbContext,
+    IChatNotifier chatNotifier,
+    IFileStorageService fileStorageService,
+    IBadgeService badgeService,
+    ILogger<ChatService> logger) : IChatService
 {
     private const int MaxMessageLength = 1000;
     private const string MediaSubFolder = "chat";
@@ -175,6 +183,16 @@ public sealed class ChatService(PlayrDbContext dbContext, IChatNotifier chatNoti
 
         var dtos = await MapMessagesAsync([message], cancellationToken);
         var dto = dtos[0];
+
+        try
+        {
+            await badgeService.CheckAndUnlockBadgesAsync(userId, BadgeType.Chatterbox, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort side effect: badge-unlock failures must not fail sending a message.
+            logger.LogError(ex, "Failed to evaluate Chatterbox badge for user {UserId}.", userId);
+        }
 
         await chatNotifier.NotifyNewMessageAsync(
             participantIds,
