@@ -95,6 +95,21 @@ public sealed class PostMentionsTests : IAsyncDisposable
         _notifier.Notified.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task CreateAsync_drops_mentioned_id_whose_username_is_only_a_substring_of_the_actual_text()
+    {
+        // "friend" is a friend, but the post text only contains "@friendly" (a different,
+        // longer token). A stale client-side mention draft must not turn into a real
+        // notification just because "friend" is a substring/prefix of "friendly".
+        var post1 = await _service.CreateAsync(
+            _authorId,
+            new CreatePostCommand(_gameId, "Hey @friendly, nice one", null, null, [_friendId]),
+            CancellationToken.None);
+
+        post1.Mentions.Should().BeEmpty();
+        _notifier.Notified.Should().BeEmpty();
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _dbContext.DisposeAsync();

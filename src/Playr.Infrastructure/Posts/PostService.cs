@@ -2,8 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Playr.Application.Badges;
 using Playr.Application.Common;
-using Playr.Application.Notifications;
-using Playr.Application.Posts;
+using Playr.Application.Notifications;using Playr.Application.Posts;
 using Playr.Application.Storage;
 using Playr.Domain.Badges;
 using Playr.Domain.Notifications;
@@ -82,8 +81,16 @@ public sealed class PostService(
 
         if (command.MentionedUserIds is { Count: > 0 })
         {
+            var candidateProfiles = await dbContext.UserProfiles
+                .AsNoTracking()
+                .Where(p => command.MentionedUserIds.Contains(p.UserId))
+                .Select(p => new { p.UserId, p.Username })
+                .ToListAsync(cancellationToken);
+            var textVerifiedIds = MentionTextValidator.FilterPresentInText(
+                text, candidateProfiles.Select(p => (p.UserId, p.Username)));
+
             var validMentionedIds = await notificationFeedService.CreateMentionNotificationsAsync(
-                authorId, command.MentionedUserIds, NotificationType.PostMention, post.Id, null, cancellationToken);
+                authorId, textVerifiedIds, NotificationType.PostMention, post.Id, null, cancellationToken);
 
             if (validMentionedIds.Count > 0)
             {

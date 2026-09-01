@@ -44,8 +44,16 @@ public sealed class CommentService(
 
         if (command.MentionedUserIds is { Count: > 0 })
         {
+            var candidateProfiles = await dbContext.UserProfiles
+                .AsNoTracking()
+                .Where(p => command.MentionedUserIds.Contains(p.UserId))
+                .Select(p => new { p.UserId, p.Username })
+                .ToListAsync(cancellationToken);
+            var textVerifiedIds = MentionTextValidator.FilterPresentInText(
+                text, candidateProfiles.Select(p => (p.UserId, p.Username)));
+
             var validMentionedIds = await notificationFeedService.CreateMentionNotificationsAsync(
-                authorId, command.MentionedUserIds, NotificationType.CommentMention, postId, comment.Id, cancellationToken);
+                authorId, textVerifiedIds, NotificationType.CommentMention, postId, comment.Id, cancellationToken);
 
             if (validMentionedIds.Count > 0)
             {
