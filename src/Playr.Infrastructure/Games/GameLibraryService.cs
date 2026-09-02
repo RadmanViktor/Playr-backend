@@ -14,6 +14,8 @@ public sealed class GameLibraryService(
     ILogger<GameLibraryService> logger) : IGameLibraryService
 {
     private const int MaxReviewLength = 1000;
+    private const long HollowKnightRawgId = 9767;
+    private static readonly Guid HollowKnightGameId = new("00000001-0000-0000-0000-000000000007");
 
     public async Task<IReadOnlyList<GameLibraryEntryDto>> GetLibraryAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -91,6 +93,19 @@ public sealed class GameLibraryService(
         {
             // Best-effort side effect: badge-unlock failures must not fail rating a game.
             logger.LogError(ex, "Failed to evaluate GameCritic badge for user {UserId}.", userId);
+        }
+
+        if (rating == 5 && (entry.GameId == HollowKnightGameId || entry.Game.RawgId == HollowKnightRawgId))
+        {
+            try
+            {
+                await badgeService.GrantBadgeAsync(
+                    userId, BadgeType.Voidtouched, BadgeLevel.Gold, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to grant Voidtouched badge to user {UserId}.", userId);
+            }
         }
 
         return new GameLibraryEntryDto(

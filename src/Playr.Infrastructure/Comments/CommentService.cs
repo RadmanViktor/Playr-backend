@@ -42,6 +42,7 @@ public sealed class CommentService(
         dbContext.PostComments.Add(comment);
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        IReadOnlyCollection<Guid> mentionedRecipientIds = [];
         if (command.MentionedUserIds is { Count: > 0 })
         {
             var candidateProfiles = await dbContext.UserProfiles
@@ -54,6 +55,7 @@ public sealed class CommentService(
 
             var validMentionedIds = await notificationFeedService.CreateMentionNotificationsAsync(
                 authorId, textVerifiedIds, NotificationType.CommentMention, postId, comment.Id, cancellationToken);
+            mentionedRecipientIds = validMentionedIds;
 
             if (validMentionedIds.Count > 0)
             {
@@ -70,6 +72,17 @@ public sealed class CommentService(
                 }));
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
+        }
+
+        if (!mentionedRecipientIds.Contains(post.AuthorId))
+        {
+            await notificationFeedService.CreatePostEngagementNotificationAsync(
+                authorId,
+                post.AuthorId,
+                NotificationType.PostCommented,
+                postId,
+                comment.Id,
+                cancellationToken);
         }
 
         var dtos = await MapToCommentDtoAsync([comment], authorId, cancellationToken);

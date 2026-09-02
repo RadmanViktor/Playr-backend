@@ -7,6 +7,7 @@ using Playr.Domain.Identity;
 using Playr.Domain.Posts;
 using Playr.Domain.Profiles;
 using Playr.Infrastructure.Data;
+using Playr.Infrastructure.Notifications;
 using Playr.Infrastructure.Posts;
 
 namespace Playr.Application.Tests.Posts;
@@ -16,7 +17,9 @@ public sealed class PostServiceTests : IAsyncDisposable
     private readonly SqliteConnection _connection;
     private readonly PlayrDbContext _dbContext;
     private readonly PostService _service;
+    private readonly Playr.Application.Tests.Notifications.SpyNotificationNotifier _notifier;
     private readonly Guid _authorId;
+    private readonly Guid _otherUserId;
     private readonly Guid _gameId;
 
     public PostServiceTests()
@@ -30,26 +33,44 @@ public sealed class PostServiceTests : IAsyncDisposable
         _dbContext.Database.EnsureCreated();
 
         _authorId = Guid.NewGuid();
+        _otherUserId = Guid.NewGuid();
         _gameId = Guid.NewGuid();
 
-        _dbContext.Users.Add(new ApplicationUser
-        {
-            Id = _authorId,
-            Email = "player@example.com",
-            UserName = "player",
-            NormalizedEmail = "PLAYER@EXAMPLE.COM",
-            NormalizedUserName = "PLAYER",
-        });
-        _dbContext.UserProfiles.Add(new UserProfile
-        {
-            UserId = _authorId,
-            Username = "player",
-            DisplayName = "Player One",
-        });
+        _dbContext.Users.AddRange(
+            new ApplicationUser
+            {
+                Id = _authorId,
+                Email = "player@example.com",
+                UserName = "player",
+                NormalizedEmail = "PLAYER@EXAMPLE.COM",
+                NormalizedUserName = "PLAYER",
+            },
+            new ApplicationUser
+            {
+                Id = _otherUserId,
+                Email = "other@example.com",
+                UserName = "other",
+                NormalizedEmail = "OTHER@EXAMPLE.COM",
+                NormalizedUserName = "OTHER",
+            });
+        _dbContext.UserProfiles.AddRange(
+            new UserProfile
+            {
+                UserId = _authorId,
+                Username = "player",
+                DisplayName = "Player One",
+            },
+            new UserProfile
+            {
+                UserId = _otherUserId,
+                Username = "other",
+                DisplayName = "Other Player",
+            });
         _dbContext.Games.Add(new Game { Id = _gameId, Name = "Hollow Knight" });
         _dbContext.SaveChanges();
 
-        _service = new PostService(_dbContext, new NoOpFileStorageService(), new Playr.Application.Tests.Notifications.NoOpNotificationFeedService(), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<PostService>.Instance);
+        _notifier = new Playr.Application.Tests.Notifications.SpyNotificationNotifier();
+        _service = new PostService(_dbContext, new NoOpFileStorageService(), new NotificationFeedService(_dbContext, _notifier), new Playr.Application.Tests.Badges.NoOpBadgeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<PostService>.Instance);
     }
 
     [Fact]
@@ -158,6 +179,51 @@ public sealed class PostServiceTests : IAsyncDisposable
         var feed = await _service.GetFeedAsync(null, CancellationToken.None);
 
         feed.Should().HaveCount(50);
+    }
+
+    [Fact]
+    public async Task ToggleLikeAsync_when_another_user_likes_notifies_post_owner()
+    {
+        var post = await _service.CreateAsync(
+            _authorId,
+            new CreatePostCommand(_gameId, "Post to like", null, null),
+            CancellationToken.None);
+
+        await _service.ToggleLikeAsync(post.Id, _otherUserId, CancellationToken.None);
+
+        _notifier.Notified.Should().ContainSingle(n =>
+            n.RecipientUserId == _authorId &&
+            n.Actor.UserId == _otherUserId &&
+            n.Type == "PostLiked" &&
+            n.PostId == post.Id &&
+            n.CommentId == null);
+    }
+
+    [Fact]
+    public async Task ToggleLikeAsync_when_like_is_removed_does_not_notify_again()
+    {
+        var post = await _service.CreateAsync(
+            _authorId,
+            new CreatePostCommand(_gameId, "Post to like", null, null),
+            CancellationToken.None);
+
+        await _service.ToggleLikeAsync(post.Id, _otherUserId, CancellationToken.None);
+        await _service.ToggleLikeAsync(post.Id, _otherUserId, CancellationToken.None);
+
+        _notifier.Notified.Should().ContainSingle(n => n.Type == "PostLiked");
+    }
+
+    [Fact]
+    public async Task ToggleLikeAsync_when_owner_likes_own_post_does_not_notify()
+    {
+        var post = await _service.CreateAsync(
+            _authorId,
+            new CreatePostCommand(_gameId, "Own post", null, null),
+            CancellationToken.None);
+
+        await _service.ToggleLikeAsync(post.Id, _authorId, CancellationToken.None);
+
+        _notifier.Notified.Should().BeEmpty();
     }
 
     public async ValueTask DisposeAsync()

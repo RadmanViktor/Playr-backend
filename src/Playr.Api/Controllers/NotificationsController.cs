@@ -91,5 +91,7 @@ public sealed class NotificationsController(INotificationFeedService notificatio
             notification.Actor.AvatarUrl),
         notification.PostId,
         notification.CommentId,
+        notification.BadgeType,
+        notification.BadgeLevel,
         notification.LfgGroupId);
 }

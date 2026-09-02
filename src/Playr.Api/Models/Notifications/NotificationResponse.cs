@@ -14,6 +14,8 @@ public sealed record NotificationResponse(
     NotificationActorResponse Actor,
     Guid? PostId,
     Guid? CommentId,
+    string? BadgeType,
+    string? BadgeLevel,
     Guid? LfgGroupId);
 
 public sealed record NotificationFeedResponse(

@@ -8,6 +8,9 @@ namespace Playr.Infrastructure.Games;
 
 public sealed class GameService(PlayrDbContext dbContext, RawgApiClient rawgApiClient) : IGameService
 {
+    private const long HollowKnightRawgId = 9767;
+    private static readonly Guid HollowKnightGameId = new("00000001-0000-0000-0000-000000000007");
+
     public async Task<IReadOnlyList<GameDto>> GetAllAsync(CancellationToken cancellationToken)
     {
         return await dbContext.Games
@@ -27,6 +30,18 @@ public sealed class GameService(PlayrDbContext dbContext, RawgApiClient rawgApiC
 
     public async Task<(GameDto Game, bool Created)> CreateFromExternalAsync(CreateGameCommand command, CancellationToken cancellationToken)
     {
+        if (command.RawgId == HollowKnightRawgId)
+        {
+            var hollowKnight = await dbContext.Games
+                .AsNoTracking()
+                .FirstAsync(g => g.Id == HollowKnightGameId, cancellationToken);
+            return (new GameDto(
+                hollowKnight.Id,
+                hollowKnight.Name,
+                hollowKnight.CoverImageUrl,
+                hollowKnight.Genre), false);
+        }
+
         if (command.RawgId is { } rawgId)
         {
             var existing = await dbContext.Games

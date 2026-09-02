@@ -96,6 +96,49 @@ public sealed class NotificationFeedServiceTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task CreatePostEngagementNotificationAsync_creates_and_pushes_notification()
+    {
+        var commentId = Guid.NewGuid();
+
+        await _service.CreatePostEngagementNotificationAsync(
+            _actorId,
+            _friendId,
+            NotificationType.PostCommented,
+            _postId,
+            commentId,
+            CancellationToken.None);
+
+        var stored = await _dbContext.Notifications.SingleAsync();
+        stored.RecipientUserId.Should().Be(_friendId);
+        stored.ActorUserId.Should().Be(_actorId);
+        stored.Type.Should().Be(NotificationType.PostCommented);
+        stored.PostId.Should().Be(_postId);
+        stored.CommentId.Should().Be(commentId);
+        stored.IsRead.Should().BeFalse();
+        _notifier.Notified.Should().ContainSingle(n =>
+            n.RecipientUserId == _friendId &&
+            n.Actor.UserId == _actorId &&
+            n.Type == "PostCommented" &&
+            n.PostId == _postId &&
+            n.CommentId == commentId);
+    }
+
+    [Fact]
+    public async Task CreatePostEngagementNotificationAsync_drops_self_action()
+    {
+        await _service.CreatePostEngagementNotificationAsync(
+            _actorId,
+            _actorId,
+            NotificationType.PostLiked,
+            _postId,
+            null,
+            CancellationToken.None);
+
+        (await _dbContext.Notifications.CountAsync()).Should().Be(0);
+        _notifier.Notified.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task CreateFollowerPostNotificationsAsync_notifies_only_followers_of_the_actor()
     {
         _dbContext.UserFollows.AddRange(

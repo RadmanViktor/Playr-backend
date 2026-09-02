@@ -17,5 +17,6 @@ public enum BadgeType
     Reactor,
     Trailblazer,
     NightOwl,
-    Veteran
+    Veteran,
+    Voidtouched
 }

@@ -14,6 +14,7 @@ namespace Playr.Application.Tests.Games;
 
 public sealed class GameServiceTests : IAsyncDisposable
 {
+    private static readonly Guid HollowKnightGameId = new("00000001-0000-0000-0000-000000000007");
     private readonly SqliteConnection _connection;
     private readonly PlayrDbContext _dbContext;
     private readonly GameService _service;
@@ -89,6 +90,18 @@ public sealed class GameServiceTests : IAsyncDisposable
 
         var allGames = await _service.GetAllAsync(CancellationToken.None);
         allGames.Count(g => g.Name == "Duplicate Game").Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CreateFromExternalAsync_returns_seeded_Hollow_Knight_for_its_RAWG_id()
+    {
+        var (game, created) = await _service.CreateFromExternalAsync(
+            new CreateGameCommand(RawgId: 9767, Name: "Hollow Knight", CoverImageUrl: null, Genre: "Platformer"),
+            CancellationToken.None);
+
+        created.Should().BeFalse();
+        game.Id.Should().Be(HollowKnightGameId);
+        (await _dbContext.Games.CountAsync(g => g.Name == "Hollow Knight")).Should().Be(1);
     }
 
     public async ValueTask DisposeAsync()

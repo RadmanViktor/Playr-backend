@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Playr.Application.Notifications;
 using Playr.Domain.Badges;
@@ -14,6 +15,10 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
     {
         var effectiveTake = take <= 0 ? 20 : Math.Min(take, MaxTake);
         var effectiveSkip = Math.Max(skip, 0);
+        var isolationLevel = dbContext.Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL"
+            ? IsolationLevel.RepeatableRead
+            : IsolationLevel.Serializable;
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(isolationLevel, cancellationToken);
 
         var notifications = await dbContext.Notifications
             .AsNoTracking()
@@ -57,6 +62,7 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
                 n.LfgGroupId);
         }).ToList();
 
+        await transaction.CommitAsync(cancellationToken);
         return new NotificationFeedResult(dtos, hasMore, unreadCount);
     }
 
@@ -287,6 +293,58 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
                 null);
             await notifier.NotifyNotificationCreatedAsync(dto, cancellationToken);
         }
+    }
+
+    public async Task CreatePostEngagementNotificationAsync(
+        Guid actorUserId,
+        Guid recipientUserId,
+        NotificationType type,
+        Guid postId,
+        Guid? commentId,
+        CancellationToken cancellationToken)
+    {
+        if (actorUserId == recipientUserId)
+        {
+            return;
+        }
+
+        if (type is not NotificationType.PostLiked and not NotificationType.PostCommented)
+        {
+            throw new ArgumentOutOfRangeException(nameof(type));
+        }
+
+        var actorProfile = await dbContext.UserProfiles
+            .AsNoTracking()
+            .FirstAsync(p => p.UserId == actorUserId, cancellationToken);
+
+        var notification = new Notification
+        {
+            Id = Guid.NewGuid(),
+            RecipientUserId = recipientUserId,
+            ActorUserId = actorUserId,
+            Type = type,
+            PostId = postId,
+            CommentId = commentId,
+            IsRead = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        dbContext.Notifications.Add(notification);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var dto = new NotificationDto(
+            notification.Id,
+            notification.Type.ToString(),
+            notification.IsRead,
+            notification.CreatedAt,
+            new NotificationActorDto(actorProfile.UserId, actorProfile.Username, actorProfile.DisplayName, actorProfile.AvatarUrl),
+            notification.RecipientUserId,
+            notification.PostId,
+            notification.CommentId,
+            null,
+            null,
+            null);
+        await notifier.NotifyNotificationCreatedAsync(dto, cancellationToken);
     }
 
     public async Task CreateBadgeUnlockedNotificationAsync(

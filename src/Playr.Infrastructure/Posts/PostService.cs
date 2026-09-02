@@ -306,6 +306,14 @@ public sealed class PostService(
 
         if (liked)
         {
+            await notificationFeedService.CreatePostEngagementNotificationAsync(
+                userId,
+                post.AuthorId,
+                NotificationType.PostLiked,
+                postId,
+                null,
+                cancellationToken);
+
             try
             {
                 await badgeService.CheckAndUnlockBadgesAsync(userId, BadgeType.Supporter, cancellationToken);

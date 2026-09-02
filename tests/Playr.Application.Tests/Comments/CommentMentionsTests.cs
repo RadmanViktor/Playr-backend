@@ -75,6 +75,48 @@ public sealed class CommentMentionsTests : IAsyncDisposable
             n.RecipientUserId == _friendId && n.Type == "CommentMention" && n.CommentId == comment.Id && n.PostId == _postId);
     }
 
+    [Fact]
+    public async Task CreateAsync_when_another_user_comments_notifies_post_owner()
+    {
+        var comment = await _service.CreateAsync(
+            _postId,
+            _friendId,
+            new CreateCommentCommand("Nice post", null),
+            CancellationToken.None);
+
+        _notifier.Notified.Should().ContainSingle(n =>
+            n.RecipientUserId == _authorId &&
+            n.Actor.UserId == _friendId &&
+            n.Type == "PostCommented" &&
+            n.PostId == _postId &&
+            n.CommentId == comment.Id);
+    }
+
+    [Fact]
+    public async Task CreateAsync_when_owner_comments_own_post_does_not_notify()
+    {
+        await _service.CreateAsync(
+            _postId,
+            _authorId,
+            new CreateCommentCommand("Adding context", null),
+            CancellationToken.None);
+
+        _notifier.Notified.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateAsync_when_comment_mentions_owner_sends_only_mention_notification()
+    {
+        await _service.CreateAsync(
+            _postId,
+            _friendId,
+            new CreateCommentCommand("Thanks @author", [_authorId]),
+            CancellationToken.None);
+
+        _notifier.Notified.Should().ContainSingle(n =>
+            n.RecipientUserId == _authorId && n.Type == "CommentMention");
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _dbContext.DisposeAsync();

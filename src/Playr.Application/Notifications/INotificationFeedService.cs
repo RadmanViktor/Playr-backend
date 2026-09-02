@@ -40,6 +40,14 @@ public interface INotificationFeedService
         IReadOnlyCollection<Guid> excludedRecipientIds,
         CancellationToken cancellationToken);
 
+    Task CreatePostEngagementNotificationAsync(
+        Guid actorUserId,
+        Guid recipientUserId,
+        Playr.Domain.Notifications.NotificationType type,
+        Guid postId,
+        Guid? commentId,
+        CancellationToken cancellationToken);
+
     /// <summary>
     /// Creates a <see cref="Playr.Domain.Notifications.NotificationType.BadgeUnlocked"/>
     /// notification for <paramref name="userId"/> (recipient and actor are the same user -
