@@ -12,4 +12,7 @@ public sealed record LookingForGamePlayerResponse(
     PlayStyle? LookingForPlayStyle,
     string? LookingForGameNote,
     string RelationshipStatus,
-    Guid? PendingInvitationId = null);
+    Guid? PendingInvitationId = null,
+    int? PreferredMinAge = null,
+    int? PreferredMaxAge = null,
+    bool VoiceChatEnabled = false);

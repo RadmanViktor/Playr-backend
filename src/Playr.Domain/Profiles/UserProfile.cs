@@ -16,6 +16,7 @@ public sealed class UserProfile
     public double CoverImagePositionX { get; set; } = 50;
     public double CoverImagePositionY { get; set; } = 50;
     public string? Region { get; set; }
+    public string? DiscordUsername { get; set; }
     public List<string> Languages { get; set; } = [];
     public List<string> Platforms { get; set; } = [];
     public List<string> Genres { get; set; } = [];
@@ -25,6 +26,9 @@ public sealed class UserProfile
     public Game? LookingForGame { get; set; }
     public PlayStyle? LookingForPlayStyle { get; set; }
     public string? LookingForGameNote { get; set; }
+    public int? LookingForPreferredMinAge { get; set; }
+    public int? LookingForPreferredMaxAge { get; set; }
+    public bool LookingForVoiceChatEnabled { get; set; }
     public List<string> TypicalPlayTimes { get; set; } = [];
     public bool HasCompletedOnboarding { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

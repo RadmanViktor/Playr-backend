@@ -6,4 +6,7 @@ public sealed record UpdateStatusCommand(
     ProfileStatus Status,
     Guid? LookingForGameId,
     PlayStyle? LookingForPlayStyle,
-    string? LookingForGameNote);
+    string? LookingForGameNote,
+    int? LookingForPreferredMinAge = null,
+    int? LookingForPreferredMaxAge = null,
+    bool LookingForVoiceChatEnabled = false);

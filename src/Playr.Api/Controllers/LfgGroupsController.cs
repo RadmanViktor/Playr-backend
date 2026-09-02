@@ -23,7 +23,14 @@ public sealed class LfgGroupsController(ILfgGroupService lfgGroupService) : Cont
         {
             var group = await lfgGroupService.CreateGroupAsync(
                 userId,
-                new CreateLfgGroupCommand(request.GameId, request.PlayersWanted, request.PlayStyle, request.Note),
+                new CreateLfgGroupCommand(
+                    request.GameId,
+                    request.PlayersWanted,
+                    request.PlayStyle,
+                    request.Note,
+                    request.PreferredMinAge,
+                    request.PreferredMaxAge,
+                    request.MicrophoneRequired),
                 cancellationToken);
             return Ok(ToResponse(group));
         }
@@ -221,7 +228,10 @@ public sealed class LfgGroupsController(ILfgGroupService lfgGroupService) : Cont
         group.CancelledAt,
         group.MyMembershipStatus.ToString(),
         group.MyApplicationStatus?.ToString(),
-        group.MyInviteStatus?.ToString());
+        group.MyInviteStatus?.ToString(),
+        group.PreferredMinAge,
+        group.PreferredMaxAge,
+        group.MicrophoneRequired);
 
     private static LfgGroupApplicationResponse ToResponse(LfgGroupApplicationDto application) => new(
         application.Id,

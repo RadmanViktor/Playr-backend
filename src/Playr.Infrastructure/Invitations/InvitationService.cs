@@ -115,13 +115,8 @@ public sealed class InvitationService(
         invitation.RespondedAt = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var conversation = await chatService.GetOrCreateDirectConversationAsync(
+        await chatService.GetOrCreateDirectConversationAsync(
             invitation.SenderUserId, invitation.RecipientUserId, cancellationToken);
-        await chatService.SendMessageAsync(
-            invitation.SenderUserId,
-            conversation.Id,
-            new SendChatMessageCommand(invitation.Message, null),
-            cancellationToken);
 
         var dto = await LoadDtoAsync(invitation.Id, cancellationToken);
         await invitationNotifier.NotifyInvitationUpdatedAsync(dto, cancellationToken);

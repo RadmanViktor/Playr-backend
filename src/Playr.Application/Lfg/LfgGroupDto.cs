@@ -22,4 +22,7 @@ public sealed record LfgGroupDto(
     DateTimeOffset? CancelledAt,
     LfgMyMembershipStatus MyMembershipStatus,
     LfgApplicationStatus? MyApplicationStatus,
-    LfgInviteStatus? MyInviteStatus);
+    LfgInviteStatus? MyInviteStatus,
+    int? PreferredMinAge = null,
+    int? PreferredMaxAge = null,
+    bool MicrophoneRequired = false);

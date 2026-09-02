@@ -13,6 +13,9 @@ public sealed class LfgGroup
     public Game Game { get; set; } = null!;
     public PlayStyle? PlayStyle { get; set; }
     public string? Note { get; set; }
+    public int? PreferredMinAge { get; set; }
+    public int? PreferredMaxAge { get; set; }
+    public bool MicrophoneRequired { get; set; }
     public int PlayersWanted { get; set; }
     public LfgGroupStatus Status { get; set; } = LfgGroupStatus.Open;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

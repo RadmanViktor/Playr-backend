@@ -50,6 +50,10 @@ public class ProfileEndpointConfigurationTests
         profileResponse.GetProperty("CreatedAt")!.PropertyType.Should().Be(typeof(DateTimeOffset));
         profileResponse.GetProperty("UpdatedAt")!.PropertyType.Should().Be(typeof(DateTimeOffset));
         profileResponse.GetProperty("LookingForGameNote")!.PropertyType.Should().Be(typeof(string));
+        profileResponse.GetProperty("DiscordUsername")!.PropertyType.Should().Be(typeof(string));
+        profileResponse.GetProperty("LookingForPreferredMinAge")!.PropertyType.Should().Be(typeof(int?));
+        profileResponse.GetProperty("LookingForPreferredMaxAge")!.PropertyType.Should().Be(typeof(int?));
+        profileResponse.GetProperty("LookingForVoiceChatEnabled")!.PropertyType.Should().Be(typeof(bool));
 
         var updateProfileRequest = apiAssembly.GetType("Playr.Api.Models.Profiles.UpdateProfileRequest");
         updateProfileRequest.Should().NotBeNull();
@@ -59,6 +63,7 @@ public class ProfileEndpointConfigurationTests
         displayNameLength.MinimumLength.Should().Be(1);
         GetRecordParameterAttribute<StringLengthAttribute>(updateProfileRequest!, "Bio").MaximumLength.Should().Be(500);
         GetRecordParameterAttribute<StringLengthAttribute>(updateProfileRequest!, "Region").MaximumLength.Should().Be(64);
+        GetRecordParameterAttribute<StringLengthAttribute>(updateProfileRequest!, "DiscordUsername").MaximumLength.Should().Be(64);
 
         var controller = apiAssembly.GetType("Playr.Api.Controllers.ProfilesController");
         controller.Should().NotBeNull();
@@ -71,6 +76,7 @@ public class ProfileEndpointConfigurationTests
             .Where(method => method.GetCustomAttribute<AuthorizeAttribute>() is not null)
             .Select(method => method.GetCustomAttribute<HttpPutAttribute>()?.Template)
             .Should().Contain("me");
+
     }
 
     [Theory]
@@ -153,6 +159,7 @@ public class ProfileEndpointConfigurationTests
 
         public Task<IReadOnlyList<LookingForGamePlayerDto>> GetLookingForGamePlayersAsync(Guid currentUserId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Profile service should not be called.");
+
     }
 
     private sealed class ThrowingPostService : IPostService

@@ -37,6 +37,37 @@ public sealed class LfgGroupServiceTests
     }
 
     [Fact]
+    public async Task CreateGroupAsync_PersistsAgeAndMicrophonePreferences()
+    {
+        await using var fixture = await LfgFixture.CreateAsync();
+
+        var group = await fixture.Service.CreateGroupAsync(
+            fixture.CreatorUserId,
+            new CreateLfgGroupCommand(GameId, 2, PlayStyle.Chill, null, 20, 35, true),
+            CancellationToken.None);
+
+        group.PreferredMinAge.Should().Be(20);
+        group.PreferredMaxAge.Should().Be(35);
+        group.MicrophoneRequired.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(12, null)]
+    [InlineData(null, 100)]
+    [InlineData(40, 30)]
+    public async Task CreateGroupAsync_WhenAgePreferenceIsInvalid_Throws(int? minAge, int? maxAge)
+    {
+        await using var fixture = await LfgFixture.CreateAsync();
+
+        var act = () => fixture.Service.CreateGroupAsync(
+            fixture.CreatorUserId,
+            new CreateLfgGroupCommand(GameId, 2, PlayStyle.Chill, null, minAge, maxAge, false),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
     public async Task CreateGroupAsync_WhenUserAlreadyHasOpenGroup_Throws()
     {
         await using var fixture = await LfgFixture.CreateAsync();
@@ -97,6 +128,7 @@ public sealed class LfgGroupServiceTests
         fixture.DbContext.Conversations.Should().ContainSingle(c => c.LfgGroupId == group.Id);
         var conversation = fixture.DbContext.Conversations.Single(c => c.LfgGroupId == group.Id);
         fixture.DbContext.ConversationParticipants.Where(p => p.ConversationId == conversation.Id).Should().HaveCount(2);
+        fixture.DbContext.ChatMessages.Should().BeEmpty();
     }
 
     [Fact]

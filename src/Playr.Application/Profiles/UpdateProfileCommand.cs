@@ -8,4 +8,5 @@ public sealed record UpdateProfileCommand(
     IReadOnlyList<string> Platforms,
     IReadOnlyList<string> Genres,
     IReadOnlyDictionary<string, string> ExternalLinks,
-    IReadOnlyList<string> TypicalPlayTimes);
+    IReadOnlyList<string> TypicalPlayTimes,
+    string? DiscordUsername = null);

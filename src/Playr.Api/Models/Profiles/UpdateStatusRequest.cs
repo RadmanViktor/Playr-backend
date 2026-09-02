@@ -7,4 +7,7 @@ public sealed record UpdateStatusRequest(
     ProfileStatus Status,
     Guid? LookingForGameId,
     PlayStyle? LookingForPlayStyle,
-    [StringLength(200)] string? LookingForGameNote);
+    [StringLength(200)] string? LookingForGameNote,
+    int? LookingForPreferredMinAge = null,
+    int? LookingForPreferredMaxAge = null,
+    bool LookingForVoiceChatEnabled = false);

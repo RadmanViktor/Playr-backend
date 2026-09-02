@@ -175,6 +175,40 @@ public sealed class ProfileServiceTests
     }
 
     [Fact]
+    public async Task UpdateCurrentUserAsync_PersistsTrimmedDiscordUsername()
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with { DiscordUsername = "  player.name  " };
+
+        var profile = await fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        profile.DiscordUsername.Should().Be("player.name");
+    }
+
+    [Fact]
+    public async Task UpdateCurrentUserAsync_WhenDiscordUsernameIsTooLong_ThrowsInvalidOperationException()
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with { DiscordUsername = new string('a', 65) };
+
+        var act = () => fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Discord username cannot be longer than 64 characters.");
+    }
+
+    [Fact]
+    public async Task UpdateCurrentUserAsync_WhenDiscordUsernameIsWhitespace_StoresNull()
+    {
+        await using var fixture = await ProfileFixture.CreateAsync();
+        var command = fixture.ValidCommand() with { DiscordUsername = "   " };
+
+        var profile = await fixture.Service.UpdateCurrentUserAsync(fixture.UserId, command, CancellationToken.None);
+
+        profile.DiscordUsername.Should().BeNull();
+    }
+
+    [Fact]
     public async Task UpdateCurrentUserAsync_WhenTypicalPlayTimeIsNotSupported_ThrowsInvalidOperationException()
     {
         await using var fixture = await ProfileFixture.CreateAsync();
@@ -261,6 +295,37 @@ public sealed class ProfileServiceTests
     }
 
     [Fact]
+    public async Task UpdateStatusAsync_PersistsAgeAndVoiceChatPreferences()
+    {
+        var (service, _, userId, gameId) = await CreateServiceWithSeededProfileAndGameAsync();
+
+        var result = await service.UpdateStatusAsync(
+            userId,
+            new UpdateStatusCommand(ProfileStatus.LookingForGame, gameId, PlayStyle.Chill, null, 20, 35, true),
+            CancellationToken.None);
+
+        result.LookingForPreferredMinAge.Should().Be(20);
+        result.LookingForPreferredMaxAge.Should().Be(35);
+        result.LookingForVoiceChatEnabled.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(12, null)]
+    [InlineData(null, 100)]
+    [InlineData(40, 30)]
+    public async Task UpdateStatusAsync_WhenAgePreferenceIsInvalid_Throws(int? minAge, int? maxAge)
+    {
+        var (service, _, userId, gameId) = await CreateServiceWithSeededProfileAndGameAsync();
+
+        var act = () => service.UpdateStatusAsync(
+            userId,
+            new UpdateStatusCommand(ProfileStatus.LookingForGame, gameId, PlayStyle.Chill, null, minAge, maxAge, false),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
     public async Task UpdateStatusAsync_rejects_note_over_max_length()
     {
         var (service, _, userId, gameId) = await CreateServiceWithSeededProfileAndGameAsync();
@@ -286,6 +351,9 @@ public sealed class ProfileServiceTests
             CancellationToken.None);
 
         result.LookingForGameNote.Should().BeNull();
+        result.LookingForPreferredMinAge.Should().BeNull();
+        result.LookingForPreferredMaxAge.Should().BeNull();
+        result.LookingForVoiceChatEnabled.Should().BeFalse();
     }
 
     [Fact]

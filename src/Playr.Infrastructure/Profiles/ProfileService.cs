@@ -23,7 +23,10 @@ public sealed class ProfileService(
     private const int MaxDisplayNameLength = 64;
     private const int MaxBioLength = 500;
     private const int MaxRegionLength = 64;
+    private const int MaxDiscordUsernameLength = 64;
     private const int MaxLookingForNoteLength = 200;
+    private const int MinPreferredAge = 13;
+    private const int MaxPreferredAge = 99;
 
     private static readonly HashSet<string> AllowedGenres = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -112,6 +115,11 @@ public sealed class ProfileService(
         var externalLinks = NormalizeExternalLinks(command.ExternalLinks);
         var bio = NormalizeOptionalText(command.Bio, "Bio", MaxBioLength);
         var region = NormalizeOptionalText(command.Region, "Region", MaxRegionLength);
+        var discordUsername = NormalizeOptionalText(command.DiscordUsername, "Discord username", MaxDiscordUsernameLength);
+        if (discordUsername?.Length == 0)
+        {
+            discordUsername = null;
+        }
         var typicalPlayTimes = NormalizeTypicalPlayTimes(command.TypicalPlayTimes);
 
         var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken)
@@ -120,6 +128,7 @@ public sealed class ProfileService(
         profile.DisplayName = displayName;
         profile.Bio = bio;
         profile.Region = region;
+        profile.DiscordUsername = discordUsername;
         profile.Languages = languages;
         profile.Platforms = platforms;
         profile.Genres = genres;
@@ -161,6 +170,7 @@ public sealed class ProfileService(
             }
 
             note = NormalizeOptionalText(command.LookingForGameNote, "Looking for game note", MaxLookingForNoteLength);
+            ValidateAgePreference(command.LookingForPreferredMinAge, command.LookingForPreferredMaxAge);
         }
 
         var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken)
@@ -172,12 +182,16 @@ public sealed class ProfileService(
             profile.LookingForGameId = command.LookingForGameId;
             profile.LookingForPlayStyle = command.LookingForPlayStyle;
             profile.LookingForGameNote = note;
+            profile.LookingForPreferredMinAge = command.LookingForPreferredMinAge;
+            profile.LookingForPreferredMaxAge = command.LookingForPreferredMaxAge;
+            profile.LookingForVoiceChatEnabled = command.LookingForVoiceChatEnabled;
         }
         else
         {
             profile.LookingForGameId = null;
             profile.LookingForPlayStyle = null;
             profile.LookingForGameNote = null;
+            ClearLookingForPreferences(profile);
         }
 
         profile.UpdatedAt = DateTimeOffset.UtcNow;
@@ -203,6 +217,7 @@ public sealed class ProfileService(
         profile.LookingForGameId = null;
         profile.LookingForPlayStyle = null;
         profile.LookingForGameNote = null;
+        ClearLookingForPreferences(profile);
         profile.UpdatedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -236,6 +251,7 @@ public sealed class ProfileService(
         profile.LookingForGameId = null;
         profile.LookingForPlayStyle = null;
         profile.LookingForGameNote = null;
+        ClearLookingForPreferences(profile);
         profile.UpdatedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -334,7 +350,31 @@ public sealed class ProfileService(
         profile.ActiveBadgeType?.ToString(),
         profile.ActiveBadgeLevel?.ToString(),
         relationshipStatus,
-        pendingInvitationId);
+        pendingInvitationId,
+        profile.DiscordUsername,
+        profile.LookingForPreferredMinAge,
+        profile.LookingForPreferredMaxAge,
+        profile.LookingForVoiceChatEnabled);
+
+    private static void ValidateAgePreference(int? minAge, int? maxAge)
+    {
+        if (minAge is < MinPreferredAge or > MaxPreferredAge || maxAge is < MinPreferredAge or > MaxPreferredAge)
+        {
+            throw new InvalidOperationException($"Preferred age must be between {MinPreferredAge} and {MaxPreferredAge}.");
+        }
+
+        if (minAge.HasValue && maxAge.HasValue && minAge > maxAge)
+        {
+            throw new InvalidOperationException("Preferred minimum age cannot be greater than preferred maximum age.");
+        }
+    }
+
+    private static void ClearLookingForPreferences(UserProfile profile)
+    {
+        profile.LookingForPreferredMinAge = null;
+        profile.LookingForPreferredMaxAge = null;
+        profile.LookingForVoiceChatEnabled = false;
+    }
 
     private static List<string> NormalizeGenres(IReadOnlyList<string>? values)
     {
@@ -527,7 +567,11 @@ public sealed class ProfileService(
                     : pending is not null
                         ? RelationshipStatus.InvitePending
                         : RelationshipStatus.None,
-                cancellableId);
+                cancellableId,
+                p.LookingForPreferredMinAge,
+                p.LookingForPreferredMaxAge,
+                p.LookingForVoiceChatEnabled);
         }).ToList();
     }
+
 }

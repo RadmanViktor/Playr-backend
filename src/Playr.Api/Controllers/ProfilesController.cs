@@ -47,7 +47,8 @@ public sealed class ProfilesController(
                     request.Platforms ?? [],
                     request.Genres ?? [],
                     request.ExternalLinks ?? new Dictionary<string, string>(),
-                    request.TypicalPlayTimes ?? []),
+                    request.TypicalPlayTimes ?? [],
+                    request.DiscordUsername),
                 cancellationToken);
 
             return Ok(ToResponse(profile));
@@ -71,7 +72,14 @@ public sealed class ProfilesController(
         {
             var profile = await profileService.UpdateStatusAsync(
                 userId,
-                new UpdateStatusCommand(request.Status, request.LookingForGameId, request.LookingForPlayStyle, request.LookingForGameNote),
+                new UpdateStatusCommand(
+                    request.Status,
+                    request.LookingForGameId,
+                    request.LookingForPlayStyle,
+                    request.LookingForGameNote,
+                    request.LookingForPreferredMinAge,
+                    request.LookingForPreferredMaxAge,
+                    request.LookingForVoiceChatEnabled),
                 cancellationToken);
 
             return Ok(ToResponse(profile));
@@ -376,7 +384,11 @@ public sealed class ProfilesController(
         profile.ActiveBadgeType,
         profile.ActiveBadgeLevel,
         profile.RelationshipStatus?.ToString(),
-        profile.PendingInvitationId);
+        profile.PendingInvitationId,
+        profile.DiscordUsername,
+        profile.LookingForPreferredMinAge,
+        profile.LookingForPreferredMaxAge,
+        profile.LookingForVoiceChatEnabled);
 
     [HttpGet("search")]
     public async Task<ActionResult<IReadOnlyList<ProfileSearchResponse>>> Search(
@@ -407,6 +419,10 @@ public sealed class ProfilesController(
             p.LookingForPlayStyle,
             p.LookingForGameNote,
             p.RelationshipStatus.ToString(),
-            p.PendingInvitationId)).ToList());
+            p.PendingInvitationId,
+            p.PreferredMinAge,
+            p.PreferredMaxAge,
+            p.VoiceChatEnabled)).ToList());
     }
+
 }

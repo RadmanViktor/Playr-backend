@@ -21,4 +21,7 @@ public sealed record LfgGroupResponse(
     DateTimeOffset? CancelledAt,
     string MyMembershipStatus,
     string? MyApplicationStatus,
-    string? MyInviteStatus);
+    string? MyInviteStatus,
+    int? PreferredMinAge = null,
+    int? PreferredMaxAge = null,
+    bool MicrophoneRequired = false);

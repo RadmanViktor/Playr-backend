@@ -63,6 +63,11 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
 
         builder.Entity<UserProfile>(profile =>
         {
+            profile.ToTable(table => table.HasCheckConstraint(
+                "CK_UserProfiles_LookingForPreferredAge",
+                "(\"LookingForPreferredMinAge\" IS NULL OR \"LookingForPreferredMinAge\" BETWEEN 13 AND 99) AND " +
+                "(\"LookingForPreferredMaxAge\" IS NULL OR \"LookingForPreferredMaxAge\" BETWEEN 13 AND 99) AND " +
+                "(\"LookingForPreferredMinAge\" IS NULL OR \"LookingForPreferredMaxAge\" IS NULL OR \"LookingForPreferredMinAge\" <= \"LookingForPreferredMaxAge\")"));
             profile.HasKey(p => p.UserId);
             profile.Property(p => p.Username).HasMaxLength(32).IsRequired();
             profile.HasIndex(p => p.Username).IsUnique();
@@ -73,6 +78,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             profile.Property(p => p.CoverImagePositionX).HasDefaultValue(50.0).IsRequired();
             profile.Property(p => p.CoverImagePositionY).HasDefaultValue(50.0).IsRequired();
             profile.Property(p => p.Region).HasMaxLength(64);
+            profile.Property(p => p.DiscordUsername).HasMaxLength(64);
             profile.Property(p => p.Status)
                 .HasConversion<string>()
                 .HasMaxLength(32)
@@ -82,6 +88,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
                 .HasConversion<string>()
                 .HasMaxLength(32);
             profile.Property(p => p.LookingForGameNote).HasMaxLength(200);
+            profile.Property(p => p.LookingForVoiceChatEnabled).HasDefaultValue(false).IsRequired();
             profile.Property(p => p.HasCompletedOnboarding).HasDefaultValue(false).IsRequired();
             profile.Property(p => p.ChatSoundEnabled).HasDefaultValue(true).IsRequired();
             profile.Property(p => p.ChatBrowserNotificationsEnabled).HasDefaultValue(true).IsRequired();
@@ -603,8 +610,14 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
 
         builder.Entity<LfgGroup>(group =>
         {
+            group.ToTable(table => table.HasCheckConstraint(
+                "CK_LfgGroups_PreferredAge",
+                "(\"PreferredMinAge\" IS NULL OR \"PreferredMinAge\" BETWEEN 13 AND 99) AND " +
+                "(\"PreferredMaxAge\" IS NULL OR \"PreferredMaxAge\" BETWEEN 13 AND 99) AND " +
+                "(\"PreferredMinAge\" IS NULL OR \"PreferredMaxAge\" IS NULL OR \"PreferredMinAge\" <= \"PreferredMaxAge\")"));
             group.HasKey(g => g.Id);
             group.Property(g => g.Note).HasMaxLength(200);
+            group.Property(g => g.MicrophoneRequired).HasDefaultValue(false).IsRequired();
             group.Property(g => g.Status)
                 .HasConversion<string>()
                 .HasMaxLength(16)

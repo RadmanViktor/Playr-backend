@@ -790,6 +790,11 @@ namespace Playr.Infrastructure.Migrations
                     b.Property<Guid>("GameId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("MicrophoneRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Note")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -799,6 +804,12 @@ namespace Playr.Infrastructure.Migrations
                         .HasColumnType("character varying(32)");
 
                     b.Property<int>("PlayersWanted")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredMaxAge")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredMinAge")
                         .HasColumnType("integer");
 
                     b.Property<string>("Status")
@@ -814,7 +825,10 @@ namespace Playr.Infrastructure.Migrations
 
                     b.HasIndex("CreatorUserId", "Status");
 
-                    b.ToTable("LfgGroups");
+                    b.ToTable("LfgGroups", t =>
+                        {
+                            t.HasCheckConstraint("CK_LfgGroups_PreferredAge", "(\"PreferredMinAge\" IS NULL OR \"PreferredMinAge\" BETWEEN 13 AND 99) AND (\"PreferredMaxAge\" IS NULL OR \"PreferredMaxAge\" BETWEEN 13 AND 99) AND (\"PreferredMinAge\" IS NULL OR \"PreferredMaxAge\" IS NULL OR \"PreferredMinAge\" <= \"PreferredMaxAge\")");
+                        });
                 });
 
             modelBuilder.Entity("Playr.Domain.Lfg.LfgGroupApplication", b =>
@@ -1185,6 +1199,10 @@ namespace Playr.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DiscordUsername")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -1217,6 +1235,17 @@ namespace Playr.Infrastructure.Migrations
                     b.Property<string>("LookingForPlayStyle")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
+
+                    b.Property<int?>("LookingForPreferredMaxAge")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LookingForPreferredMinAge")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("LookingForVoiceChatEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.PrimitiveCollection<string>("Platforms")
                         .IsRequired()
@@ -1252,7 +1281,10 @@ namespace Playr.Infrastructure.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("UserProfiles");
+                    b.ToTable("UserProfiles", t =>
+                        {
+                            t.HasCheckConstraint("CK_UserProfiles_LookingForPreferredAge", "(\"LookingForPreferredMinAge\" IS NULL OR \"LookingForPreferredMinAge\" BETWEEN 13 AND 99) AND (\"LookingForPreferredMaxAge\" IS NULL OR \"LookingForPreferredMaxAge\" BETWEEN 13 AND 99) AND (\"LookingForPreferredMinAge\" IS NULL OR \"LookingForPreferredMaxAge\" IS NULL OR \"LookingForPreferredMinAge\" <= \"LookingForPreferredMaxAge\")");
+                        });
                 });
 
             modelBuilder.Entity("Playr.Domain.Steam.SteamAccount", b =>

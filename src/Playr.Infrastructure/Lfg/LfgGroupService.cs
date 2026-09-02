@@ -20,6 +20,8 @@ public sealed class LfgGroupService(
 {
     private const int MaxNoteLength = 200;
     private const int MaxPlayersWanted = 10;
+    private const int MinPreferredAge = 13;
+    private const int MaxPreferredAge = 99;
 
     public async Task<LfgGroupDto> CreateGroupAsync(Guid creatorUserId, CreateLfgGroupCommand command, CancellationToken cancellationToken)
     {
@@ -27,6 +29,8 @@ public sealed class LfgGroupService(
         {
             throw new InvalidOperationException($"Players wanted must be between 1 and {MaxPlayersWanted}.");
         }
+
+        ValidateAgePreference(command.PreferredMinAge, command.PreferredMaxAge);
 
         var gameExists = await dbContext.Games.AsNoTracking().AnyAsync(g => g.Id == command.GameId, cancellationToken);
         if (!gameExists)
@@ -58,6 +62,9 @@ public sealed class LfgGroupService(
             GameId = command.GameId,
             PlayStyle = command.PlayStyle,
             Note = note,
+            PreferredMinAge = command.PreferredMinAge,
+            PreferredMaxAge = command.PreferredMaxAge,
+            MicrophoneRequired = command.MicrophoneRequired,
             PlayersWanted = command.PlayersWanted,
             Status = LfgGroupStatus.Open,
             CreatedAt = now,
@@ -505,7 +512,10 @@ public sealed class LfgGroupService(
             group.CancelledAt,
             myMembership,
             myApplication?.Status,
-            myInvite?.Status);
+            myInvite?.Status,
+            group.PreferredMinAge,
+            group.PreferredMaxAge,
+            group.MicrophoneRequired);
     }
 
     private static LfgGroupApplicationDto ToDto(LfgGroupApplication application) => new(
@@ -553,5 +563,18 @@ public sealed class LfgGroupService(
         }
 
         return trimmed;
+    }
+
+    private static void ValidateAgePreference(int? minAge, int? maxAge)
+    {
+        if (minAge is < MinPreferredAge or > MaxPreferredAge || maxAge is < MinPreferredAge or > MaxPreferredAge)
+        {
+            throw new InvalidOperationException($"Preferred age must be between {MinPreferredAge} and {MaxPreferredAge}.");
+        }
+
+        if (minAge.HasValue && maxAge.HasValue && minAge > maxAge)
+        {
+            throw new InvalidOperationException("Preferred minimum age cannot be greater than preferred maximum age.");
+        }
     }
 }

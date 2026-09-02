@@ -29,4 +29,8 @@ public sealed record ProfileDto(
     string? ActiveBadgeType,
     string? ActiveBadgeLevel,
     RelationshipStatus? RelationshipStatus = null,
-    Guid? PendingInvitationId = null);
+    Guid? PendingInvitationId = null,
+    string? DiscordUsername = null,
+    int? LookingForPreferredMinAge = null,
+    int? LookingForPreferredMaxAge = null,
+    bool LookingForVoiceChatEnabled = false);

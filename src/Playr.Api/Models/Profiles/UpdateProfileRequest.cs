@@ -10,4 +10,5 @@ public sealed record UpdateProfileRequest(
     IReadOnlyList<string>? Platforms,
     IReadOnlyList<string>? Genres,
     IReadOnlyDictionary<string, string>? ExternalLinks,
-    IReadOnlyList<string>? TypicalPlayTimes);
+    IReadOnlyList<string>? TypicalPlayTimes,
+    [StringLength(64)] string? DiscordUsername = null);
