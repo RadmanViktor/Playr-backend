@@ -9,4 +9,7 @@ public sealed class AuthOptions
     /// skipping the confirmation email step. Intended for local development only.
     /// </summary>
     public bool AutoConfirmEmailOnRegister { get; set; } = false;
+
+    public int RefreshTokenExpirationDays { get; set; } = 30;
+    public int RefreshTokenAbsoluteExpirationDays { get; set; } = 90;
 }

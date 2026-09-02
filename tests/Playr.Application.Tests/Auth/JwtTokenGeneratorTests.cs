@@ -15,7 +15,7 @@ public sealed class JwtTokenGeneratorTests
             Issuer = "PLAYR",
             Audience = "PLAYR",
             SigningKey = "this-is-a-development-test-key-with-enough-length",
-            ExpirationMinutes = 60
+            ExpirationMinutes = 15
         });
         var generator = new JwtTokenGenerator(options);
         var user = new ApplicationUser
@@ -28,6 +28,6 @@ public sealed class JwtTokenGeneratorTests
         var result = generator.Generate(user);
 
         result.AccessToken.Should().NotBeNullOrWhiteSpace();
-        result.ExpiresAt.Should().BeAfter(DateTimeOffset.UtcNow.AddMinutes(55));
+        result.ExpiresAt.Should().BeAfter(DateTimeOffset.UtcNow.AddMinutes(10));
     }
 }

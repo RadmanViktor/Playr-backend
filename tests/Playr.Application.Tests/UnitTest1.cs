@@ -63,10 +63,12 @@ public class ContractTests
         options.Issuer.Should().BeEmpty();
         options.Audience.Should().BeEmpty();
         options.SigningKey.Should().BeEmpty();
-        options.ExpirationMinutes.Should().Be(60);
+        options.ExpirationMinutes.Should().Be(15);
         typeof(IAuthService).GetMethods().Select(method => method.Name).Should().BeEquivalentTo(
             "RegisterAsync",
             "LoginAsync",
+            "RefreshAsync",
+            "RevokeRefreshTokenAsync",
             "GetCurrentUserAsync",
             "ConfirmEmailAsync",
             "ResendConfirmationAsync",

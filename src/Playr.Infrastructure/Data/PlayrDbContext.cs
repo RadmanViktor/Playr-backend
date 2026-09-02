@@ -23,6 +23,7 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+    public DbSet<RefreshSession> RefreshSessions => Set<RefreshSession>();
     public DbSet<Game> Games => Set<Game>();
     public DbSet<UserGameLibraryEntry> UserGameLibraryEntries => Set<UserGameLibraryEntry>();
     public DbSet<UserPlayingNow> UserPlayingNows => Set<UserPlayingNow>();
@@ -60,6 +61,44 @@ public sealed class PlayrDbContext(DbContextOptions<PlayrDbContext> options)
             .WithOne(profile => profile.User)
             .HasForeignKey<UserProfile>(profile => profile.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<RefreshSession>(session =>
+        {
+            session.HasKey(s => s.Id);
+            session.Property(s => s.TokenHash).HasMaxLength(64).IsRequired();
+            session.Property(s => s.ReplacedByTokenHash).HasMaxLength(64);
+            session.Property(s => s.RevocationReason).HasMaxLength(32);
+            session.HasIndex(s => s.TokenHash).IsUnique();
+            session.HasIndex(s => s.AbsoluteExpiresAt);
+            session.HasIndex(s => new { s.FamilyId, s.RevokedAt });
+            session.HasOne(s => s.User)
+                .WithMany()
+                .HasForeignKey(s => s.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            if (Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                session.Property(s => s.CreatedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                session.Property(s => s.LastUsedAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                session.Property(s => s.ExpiresAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                session.Property(s => s.AbsoluteExpiresAt)
+                    .HasConversion(
+                        v => v.ToUnixTimeMilliseconds(),
+                        v => DateTimeOffset.FromUnixTimeMilliseconds(v));
+                session.Property(s => s.RevokedAt)
+                    .HasConversion(
+                        v => v.HasValue ? v.Value.ToUnixTimeMilliseconds() : (long?)null,
+                        v => v.HasValue ? DateTimeOffset.FromUnixTimeMilliseconds(v.Value) : (DateTimeOffset?)null);
+            }
+        });
 
         builder.Entity<UserProfile>(profile =>
         {

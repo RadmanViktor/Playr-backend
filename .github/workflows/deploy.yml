@@ -72,7 +72,6 @@ jobs:
           FILESTORAGE__ROOTPATH: ${{ secrets.FILESTORAGE__ROOTPATH }}
           FRONTEND__BASEURL: ${{ secrets.FRONTEND__BASEURL }}
           JWT__AUDIENCE: ${{ secrets.JWT__AUDIENCE }}
-          JWT__EXPIRATIONMINUTES: ${{ secrets.JWT__EXPIRATIONMINUTES }}
           JWT__ISSUER: ${{ secrets.JWT__ISSUER }}
           JWT__SIGNINGKEY: ${{ secrets.JWT__SIGNINGKEY }}
           RAWG__APIKEY: ${{ secrets.RAWG__APIKEY }}
@@ -85,7 +84,7 @@ jobs:
           missing=''
           for name in ASPNETCORE_ENVIRONMENT ASPNETCORE_URLS CONNECTIONSTRINGS__DEFAULTCONNECTION \
             EMAIL__FROMADDRESS EMAIL__FROMNAME EMAIL__HOST EMAIL__PASSWORD EMAIL__PORT EMAIL__USERNAME EMAIL__USESTARTTLS \
-            FILESTORAGE__ROOTPATH FRONTEND__BASEURL JWT__AUDIENCE JWT__EXPIRATIONMINUTES JWT__ISSUER JWT__SIGNINGKEY \
+            FILESTORAGE__ROOTPATH FRONTEND__BASEURL JWT__AUDIENCE JWT__ISSUER JWT__SIGNINGKEY \
             RAWG__APIKEY STEAM__APIKEY STEAM__SYNCINTERVALHOURS SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
             if [ -z "${!name:-}" ]; then
               missing="$missing $name"
@@ -128,7 +127,6 @@ jobs:
           FILESTORAGE__ROOTPATH: ${{ secrets.FILESTORAGE__ROOTPATH }}
           FRONTEND__BASEURL: ${{ secrets.FRONTEND__BASEURL }}
           JWT__AUDIENCE: ${{ secrets.JWT__AUDIENCE }}
-          JWT__EXPIRATIONMINUTES: ${{ secrets.JWT__EXPIRATIONMINUTES }}
           JWT__ISSUER: ${{ secrets.JWT__ISSUER }}
           JWT__SIGNINGKEY: ${{ secrets.JWT__SIGNINGKEY }}
           RAWG__APIKEY: ${{ secrets.RAWG__APIKEY }}
@@ -146,7 +144,7 @@ jobs:
           for name in ASPNETCORE_ENVIRONMENT ASPNETCORE_URLS CONNECTIONSTRINGS__DEFAULTCONNECTION \
             ADMIN__GRANTSECRET \
             EMAIL__FROMADDRESS EMAIL__FROMNAME EMAIL__HOST EMAIL__PASSWORD EMAIL__PORT EMAIL__USERNAME EMAIL__USESTARTTLS \
-            FILESTORAGE__ROOTPATH FRONTEND__BASEURL JWT__AUDIENCE JWT__EXPIRATIONMINUTES JWT__ISSUER JWT__SIGNINGKEY \
+            FILESTORAGE__ROOTPATH FRONTEND__BASEURL JWT__AUDIENCE JWT__ISSUER JWT__SIGNINGKEY \
             RAWG__APIKEY STEAM__APIKEY STEAM__SYNCINTERVALHOURS; do
             value="${!name}"
             if [ "$(printf '%s' "$value" | wc -l)" -ne 0 ]; then
@@ -166,7 +164,7 @@ jobs:
             printf 'Jwt__Issuer=%s\n' "$JWT__ISSUER"
             printf 'Jwt__Audience=%s\n' "$JWT__AUDIENCE"
             printf 'Jwt__SigningKey=%s\n' "$JWT__SIGNINGKEY"
-            printf 'Jwt__ExpirationMinutes=%s\n' "$JWT__EXPIRATIONMINUTES"
+            printf 'Jwt__ExpirationMinutes=15\n'
             printf 'Admin__GrantSecret=%s\n' "$ADMIN__GRANTSECRET"
             printf 'Steam__ApiKey=%s\n' "$STEAM__APIKEY"
             printf 'Steam__SyncIntervalHours=%s\n' "$STEAM__SYNCINTERVALHOURS"

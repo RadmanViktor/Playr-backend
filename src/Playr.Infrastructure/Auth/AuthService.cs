@@ -1,4 +1,5 @@
 using System.Buffers.Text;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -133,7 +134,115 @@ public sealed class AuthService(
             throw new EmailNotConfirmedException(EmailNotConfirmedMessage);
         }
 
-        return tokenGenerator.Generate(user);
+        return await CreateSessionAsync(user, cancellationToken);
+    }
+
+    public async Task<AuthResult> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
+    {
+        var tokenHash = HashRefreshToken(refreshToken);
+        var now = DateTimeOffset.UtcNow;
+        var currentSession = await dbContext.RefreshSessions
+            .AsNoTracking()
+            .SingleOrDefaultAsync(session => session.TokenHash == tokenHash, cancellationToken);
+
+        if (currentSession is null)
+        {
+            throw new UnauthorizedAccessException("The session is invalid or has expired.");
+        }
+
+        if (currentSession.RevokedAt is not null)
+        {
+            if (currentSession.ReplacedByTokenHash is not null)
+            {
+                await RevokeFamilyAsync(currentSession.FamilyId, now, "reused", cancellationToken);
+            }
+
+            throw new UnauthorizedAccessException("The session is invalid or has expired.");
+        }
+
+        if (currentSession.ExpiresAt <= now || currentSession.AbsoluteExpiresAt <= now)
+        {
+            await dbContext.RefreshSessions
+                .Where(session => session.Id == currentSession.Id && session.RevokedAt == null)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(session => session.RevokedAt, now)
+                    .SetProperty(session => session.RevocationReason, "expired"), cancellationToken);
+            throw new UnauthorizedAccessException("The session is invalid or has expired.");
+        }
+
+        var user = await userManager.Users.SingleOrDefaultAsync(user => user.Id == currentSession.UserId, cancellationToken);
+        if (user is null || !user.EmailConfirmed || await userManager.IsLockedOutAsync(user))
+        {
+            await RevokeFamilyAsync(currentSession.FamilyId, now, "user-invalid", cancellationToken);
+            throw new UnauthorizedAccessException("The session is invalid or has expired.");
+        }
+
+        var replacementToken = GenerateRefreshToken();
+        var replacementHash = HashRefreshToken(replacementToken);
+        var replacementExpiresAt = Min(
+            now.AddDays(authOptions.Value.RefreshTokenExpirationDays),
+            currentSession.AbsoluteExpiresAt);
+
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        var updated = await dbContext.RefreshSessions
+            .Where(session =>
+                session.Id == currentSession.Id &&
+                session.RevokedAt == null &&
+                session.ExpiresAt > now &&
+                session.AbsoluteExpiresAt > now)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(session => session.LastUsedAt, now)
+                .SetProperty(session => session.RevokedAt, now)
+                .SetProperty(session => session.RevocationReason, "rotated")
+                .SetProperty(session => session.ReplacedByTokenHash, replacementHash), cancellationToken);
+
+        if (updated == 0)
+        {
+            await dbContext.RefreshSessions
+                .Where(session => session.FamilyId == currentSession.FamilyId && session.RevokedAt == null)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(session => session.RevokedAt, now)
+                    .SetProperty(session => session.RevocationReason, "reused"), cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            throw new UnauthorizedAccessException("The session is invalid or has expired.");
+        }
+
+        dbContext.RefreshSessions.Add(new RefreshSession
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            FamilyId = currentSession.FamilyId,
+            TokenHash = replacementHash,
+            CreatedAt = now,
+            LastUsedAt = now,
+            ExpiresAt = replacementExpiresAt,
+            AbsoluteExpiresAt = currentSession.AbsoluteExpiresAt,
+        });
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.RefreshSessions
+            .Where(session =>
+                session.FamilyId == currentSession.FamilyId &&
+                session.RevocationReason == "rotated" &&
+                session.RevokedAt < now.AddDays(-1))
+            .ExecuteDeleteAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return tokenGenerator.Generate(user) with
+        {
+            RefreshToken = replacementToken,
+            RefreshTokenExpiresAt = replacementExpiresAt,
+        };
+    }
+
+    public async Task RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken)
+    {
+        var tokenHash = HashRefreshToken(refreshToken);
+        var now = DateTimeOffset.UtcNow;
+        await dbContext.RefreshSessions
+            .Where(session => session.TokenHash == tokenHash && session.RevokedAt == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(session => session.RevokedAt, now)
+                .SetProperty(session => session.RevocationReason, "logout"), cancellationToken);
     }
 
     public async Task<AuthUserDto?> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -240,13 +349,79 @@ public sealed class AuthService(
             return false;
         }
 
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
         var result = await userManager.ResetPasswordAsync(user, decodedToken, newPassword);
         if (!result.Succeeded)
         {
             logger.LogInformation("Password reset failed for user {UserId}.", userId);
         }
 
+        if (result.Succeeded)
+        {
+            var now = DateTimeOffset.UtcNow;
+            await dbContext.RefreshSessions
+                .Where(session => session.UserId == user.Id && session.RevokedAt == null)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(session => session.RevokedAt, now)
+                    .SetProperty(session => session.RevocationReason, "password-reset"), cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+
         return result.Succeeded;
+    }
+
+    private async Task<AuthResult> CreateSessionAsync(ApplicationUser user, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        await dbContext.RefreshSessions
+            .Where(session => session.AbsoluteExpiresAt <= now)
+            .ExecuteDeleteAsync(cancellationToken);
+        var refreshToken = GenerateRefreshToken();
+        var absoluteExpiresAt = now.AddDays(authOptions.Value.RefreshTokenAbsoluteExpirationDays);
+        var expiresAt = Min(now.AddDays(authOptions.Value.RefreshTokenExpirationDays), absoluteExpiresAt);
+
+        dbContext.RefreshSessions.Add(new RefreshSession
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            FamilyId = Guid.NewGuid(),
+            TokenHash = HashRefreshToken(refreshToken),
+            CreatedAt = now,
+            LastUsedAt = now,
+            ExpiresAt = expiresAt,
+            AbsoluteExpiresAt = absoluteExpiresAt,
+        });
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return tokenGenerator.Generate(user) with
+        {
+            RefreshToken = refreshToken,
+            RefreshTokenExpiresAt = expiresAt,
+        };
+    }
+
+    private async Task RevokeFamilyAsync(Guid familyId, DateTimeOffset revokedAt, string reason, CancellationToken cancellationToken)
+    {
+        await dbContext.RefreshSessions
+            .Where(session => session.FamilyId == familyId && session.RevokedAt == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(session => session.RevokedAt, revokedAt)
+                .SetProperty(session => session.RevocationReason, reason), cancellationToken);
+    }
+
+    private static string GenerateRefreshToken()
+    {
+        return Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(64));
+    }
+
+    private static string HashRefreshToken(string refreshToken)
+    {
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
+    }
+
+    private static DateTimeOffset Min(DateTimeOffset left, DateTimeOffset right)
+    {
+        return left <= right ? left : right;
     }
 
     private async Task SendConfirmationEmailAsync(ApplicationUser user, CancellationToken cancellationToken)

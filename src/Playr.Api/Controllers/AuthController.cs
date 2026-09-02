@@ -10,6 +10,9 @@ namespace Playr.Api.Controllers;
 [Route("api/auth")]
 public sealed class AuthController(IAuthService authService) : ControllerBase
 {
+    private const string RefreshCookieName = "playr_refresh";
+    private const string SessionHeaderName = "X-Playr-Session";
+
     [HttpPost("register")]
     public async Task<ActionResult<UserResponse>> Register(RegisterRequest request, CancellationToken cancellationToken)
     {
@@ -33,6 +36,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         try
         {
             var result = await authService.LoginAsync(request.UsernameOrEmail, request.Password, cancellationToken);
+            SetRefreshCookie(result);
             return Ok(new LoginResponse(result.AccessToken, result.ExpiresAt));
         }
         catch (EmailNotConfirmedException ex)
@@ -43,6 +47,50 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         {
             return Unauthorized(new { error = ex.Message });
         }
+    }
+
+    [HttpPost("refresh")]
+    public async Task<ActionResult<LoginResponse>> Refresh(CancellationToken cancellationToken)
+    {
+        if (!HasSessionHeader())
+        {
+            return BadRequest(new { error = "The session header is required." });
+        }
+
+        if (!Request.Cookies.TryGetValue(RefreshCookieName, out var refreshToken) || string.IsNullOrWhiteSpace(refreshToken))
+        {
+            ClearRefreshCookie();
+            return Unauthorized(new { error = "The session is invalid or has expired." });
+        }
+
+        try
+        {
+            var result = await authService.RefreshAsync(refreshToken, cancellationToken);
+            SetRefreshCookie(result);
+            return Ok(new LoginResponse(result.AccessToken, result.ExpiresAt));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            ClearRefreshCookie();
+            return Unauthorized(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
+    {
+        if (!HasSessionHeader())
+        {
+            return BadRequest(new { error = "The session header is required." });
+        }
+
+        if (Request.Cookies.TryGetValue(RefreshCookieName, out var refreshToken) && !string.IsNullOrWhiteSpace(refreshToken))
+        {
+            await authService.RevokeRefreshTokenAsync(refreshToken, cancellationToken);
+        }
+
+        ClearRefreshCookie();
+        return NoContent();
     }
 
     [HttpPost("confirm-email")]
@@ -99,5 +147,38 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     private static UserResponse ToResponse(AuthUserDto user)
     {
         return new UserResponse(user.Id, user.Email, user.Username, user.DisplayName, user.EmailConfirmed);
+    }
+
+    private bool HasSessionHeader()
+    {
+        return Request.Headers.TryGetValue(SessionHeaderName, out var values) && values.Contains("1");
+    }
+
+    private void SetRefreshCookie(AuthResult result)
+    {
+        if (string.IsNullOrWhiteSpace(result.RefreshToken) || result.RefreshTokenExpiresAt is null)
+        {
+            throw new InvalidOperationException("Authentication did not produce a refresh token.");
+        }
+
+        Response.Cookies.Append(RefreshCookieName, result.RefreshToken, CreateCookieOptions(result.RefreshTokenExpiresAt.Value));
+    }
+
+    private void ClearRefreshCookie()
+    {
+        Response.Cookies.Delete(RefreshCookieName, CreateCookieOptions(DateTimeOffset.UnixEpoch));
+    }
+
+    private CookieOptions CreateCookieOptions(DateTimeOffset expiresAt)
+    {
+        return new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = Request.IsHttps,
+            SameSite = SameSiteMode.Lax,
+            Path = "/api/auth",
+            Expires = expiresAt,
+            IsEssential = true,
+        };
     }
 }

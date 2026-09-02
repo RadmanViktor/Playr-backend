@@ -300,6 +300,25 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
+    public async Task ResetPasswordAsync_RevokesExistingRefreshSessions()
+    {
+        await using var fixture = await AuthFixture.CreateAsync();
+        var user = await fixture.CreateConfirmedUserAsync("player", "player@example.com", "Password123");
+        await fixture.Service.LoginAsync("player", "Password123", CancellationToken.None);
+        await fixture.Service.ForgotPasswordAsync(user.Email!, CancellationToken.None);
+
+        var reset = await fixture.Service.ResetPasswordAsync(
+            user.Id,
+            fixture.EmailSender.ExtractToken(),
+            "NewPassword456",
+            CancellationToken.None);
+
+        reset.Should().BeTrue();
+        fixture.DbContext.ChangeTracker.Clear();
+        (await fixture.DbContext.RefreshSessions.SingleAsync()).RevocationReason.Should().Be("password-reset");
+    }
+
+    [Fact]
     public async Task ResetPasswordAsync_WithGarbageToken_ReturnsFalse()
     {
         await using var fixture = await AuthFixture.CreateAsync();

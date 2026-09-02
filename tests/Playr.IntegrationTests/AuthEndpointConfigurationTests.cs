@@ -159,6 +159,12 @@ public class AuthEndpointConfigurationTests
         public Task<AuthResult> LoginAsync(string usernameOrEmail, string password, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Auth service should not be called.");
 
+        public Task<AuthResult> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Auth service should not be called.");
+
+        public Task RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Auth service should not be called.");
+
         public Task<AuthUserDto?> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Auth service should not be called.");
 

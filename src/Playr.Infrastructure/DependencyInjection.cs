@@ -72,7 +72,12 @@ public static class DependencyInjection
         services.AddScoped<Playr.Application.Lfg.ILfgGroupService, Playr.Infrastructure.Lfg.LfgGroupService>();
         services.AddSingleton<Playr.Application.Storage.IFileStorageService, Playr.Infrastructure.Storage.LocalFileStorageService>();
 
-        services.Configure<Playr.Application.Auth.AuthOptions>(configuration.GetSection(Playr.Application.Auth.AuthOptions.SectionName));
+        services.AddOptions<Playr.Application.Auth.AuthOptions>()
+            .Bind(configuration.GetSection(Playr.Application.Auth.AuthOptions.SectionName))
+            .Validate(options => options.RefreshTokenExpirationDays > 0, "Refresh token expiration days must be greater than zero.")
+            .Validate(options => options.RefreshTokenAbsoluteExpirationDays >= options.RefreshTokenExpirationDays,
+                "Refresh token absolute expiration must be at least the sliding expiration.")
+            .ValidateOnStart();
         services.Configure<Playr.Application.Badges.AdminOptions>(configuration.GetSection(Playr.Application.Badges.AdminOptions.SectionName));
 
         services.Configure<SteamOptions>(configuration.GetSection(SteamOptions.SectionName));

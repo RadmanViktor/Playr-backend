@@ -4,6 +4,8 @@ public interface IAuthService
 {
     Task<AuthUserDto> RegisterAsync(RegisterUserCommand command, CancellationToken cancellationToken);
     Task<AuthResult> LoginAsync(string usernameOrEmail, string password, CancellationToken cancellationToken);
+    Task<AuthResult> RefreshAsync(string refreshToken, CancellationToken cancellationToken);
+    Task RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken);
     Task<AuthUserDto?> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
