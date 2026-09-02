@@ -2,7 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Playr.Application.Badges;
 using Playr.Application.Common;
-using Playr.Application.Notifications;using Playr.Application.Posts;
+using Playr.Application.Notifications;
+using Playr.Application.Posts;
 using Playr.Application.Storage;
 using Playr.Domain.Badges;
 using Playr.Domain.Notifications;
@@ -79,6 +80,7 @@ public sealed class PostService(
         dbContext.Posts.Add(post);
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        IReadOnlyCollection<Guid> mentionedRecipientIds = [];
         if (command.MentionedUserIds is { Count: > 0 })
         {
             var candidateProfiles = await dbContext.UserProfiles
@@ -91,6 +93,7 @@ public sealed class PostService(
 
             var validMentionedIds = await notificationFeedService.CreateMentionNotificationsAsync(
                 authorId, textVerifiedIds, NotificationType.PostMention, post.Id, null, cancellationToken);
+            mentionedRecipientIds = validMentionedIds;
 
             if (validMentionedIds.Count > 0)
             {
@@ -108,6 +111,9 @@ public sealed class PostService(
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
         }
+
+        await notificationFeedService.CreateFollowerPostNotificationsAsync(
+            authorId, post.Id, mentionedRecipientIds, cancellationToken);
 
         var dtos = await MapToPostDtoAsync([post], authorId, cancellationToken);
 

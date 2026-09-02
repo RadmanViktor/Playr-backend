@@ -34,6 +34,13 @@ public sealed class NoOpNotificationFeedService : INotificationFeedService
         CancellationToken cancellationToken) =>
         Task.CompletedTask;
 
+    public Task CreateFollowerPostNotificationsAsync(
+        Guid actorUserId,
+        Guid postId,
+        IReadOnlyCollection<Guid> excludedRecipientIds,
+        CancellationToken cancellationToken) =>
+        Task.CompletedTask;
+
     public Task CreateBadgeUnlockedNotificationAsync(
         Guid userId,
         Playr.Domain.Badges.BadgeType badgeType,

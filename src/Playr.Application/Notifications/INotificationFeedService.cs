@@ -34,6 +34,12 @@ public interface INotificationFeedService
         Guid recipientUserId,
         CancellationToken cancellationToken);
 
+    Task CreateFollowerPostNotificationsAsync(
+        Guid actorUserId,
+        Guid postId,
+        IReadOnlyCollection<Guid> excludedRecipientIds,
+        CancellationToken cancellationToken);
+
     /// <summary>
     /// Creates a <see cref="Playr.Domain.Notifications.NotificationType.BadgeUnlocked"/>
     /// notification for <paramref name="userId"/> (recipient and actor are the same user -

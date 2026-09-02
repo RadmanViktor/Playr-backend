@@ -3,6 +3,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Playr.Application.Posts;
 using Playr.Application.Tests.Notifications;
+using Playr.Domain.Follows;
 using Playr.Domain.Friendships;
 using Playr.Domain.Games;
 using Playr.Domain.Identity;
@@ -108,6 +109,53 @@ public sealed class PostMentionsTests : IAsyncDisposable
 
         post1.Mentions.Should().BeEmpty();
         _notifier.Notified.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("Feed")]
+    [InlineData("Profile")]
+    public async Task CreateAsync_notifies_followers_for_every_post_scope(string? scope)
+    {
+        _dbContext.UserFollows.Add(new UserFollow
+        {
+            Id = Guid.NewGuid(),
+            FollowerUserId = _friendId,
+            FollowingUserId = _authorId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var post = await _service.CreateAsync(
+            _authorId,
+            new CreatePostCommand(_gameId, "A new post", null, null, null, scope),
+            CancellationToken.None);
+
+        _notifier.Notified.Should().ContainSingle(n =>
+            n.RecipientUserId == _friendId &&
+            n.Type == "FollowedUserPosted" &&
+            n.PostId == post.Id);
+    }
+
+    [Fact]
+    public async Task CreateAsync_sends_only_the_mention_when_a_follower_is_mentioned()
+    {
+        _dbContext.UserFollows.Add(new UserFollow
+        {
+            Id = Guid.NewGuid(),
+            FollowerUserId = _friendId,
+            FollowingUserId = _authorId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var post = await _service.CreateAsync(
+            _authorId,
+            new CreatePostCommand(_gameId, "Hello @friend", null, null, [_friendId]),
+            CancellationToken.None);
+
+        _notifier.Notified.Should().ContainSingle(n =>
+            n.RecipientUserId == _friendId &&
+            n.Type == "PostMention" &&
+            n.PostId == post.Id);
     }
 
     public async ValueTask DisposeAsync()

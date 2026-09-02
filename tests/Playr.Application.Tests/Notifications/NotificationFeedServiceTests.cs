@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Playr.Domain.Follows;
 using Playr.Domain.Friendships;
 using Playr.Domain.Identity;
 using Playr.Domain.Notifications;
@@ -92,6 +93,56 @@ public sealed class NotificationFeedServiceTests : IAsyncDisposable
 
         validIds.Should().BeEmpty();
         (await _dbContext.Notifications.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task CreateFollowerPostNotificationsAsync_notifies_only_followers_of_the_actor()
+    {
+        _dbContext.UserFollows.AddRange(
+            new UserFollow
+            {
+                Id = Guid.NewGuid(),
+                FollowerUserId = _friendId,
+                FollowingUserId = _actorId,
+            },
+            new UserFollow
+            {
+                Id = Guid.NewGuid(),
+                FollowerUserId = _actorId,
+                FollowingUserId = _strangerId,
+            });
+        await _dbContext.SaveChangesAsync();
+
+        await _service.CreateFollowerPostNotificationsAsync(
+            _actorId, _postId, [], CancellationToken.None);
+
+        var stored = await _dbContext.Notifications.SingleAsync();
+        stored.RecipientUserId.Should().Be(_friendId);
+        stored.ActorUserId.Should().Be(_actorId);
+        stored.Type.Should().Be(NotificationType.FollowedUserPosted);
+        stored.PostId.Should().Be(_postId);
+        _notifier.Notified.Should().ContainSingle(n =>
+            n.RecipientUserId == _friendId &&
+            n.Type == "FollowedUserPosted" &&
+            n.PostId == _postId);
+    }
+
+    [Fact]
+    public async Task CreateFollowerPostNotificationsAsync_excludes_mentioned_followers()
+    {
+        _dbContext.UserFollows.Add(new UserFollow
+        {
+            Id = Guid.NewGuid(),
+            FollowerUserId = _friendId,
+            FollowingUserId = _actorId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        await _service.CreateFollowerPostNotificationsAsync(
+            _actorId, _postId, [_friendId], CancellationToken.None);
+
+        (await _dbContext.Notifications.CountAsync()).Should().Be(0);
+        _notifier.Notified.Should().BeEmpty();
     }
 
     [Fact]

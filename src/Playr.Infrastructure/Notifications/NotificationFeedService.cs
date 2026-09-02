@@ -229,6 +229,66 @@ public sealed class NotificationFeedService(PlayrDbContext dbContext, INotificat
         await notifier.NotifyNotificationCreatedAsync(dto, cancellationToken);
     }
 
+    public async Task CreateFollowerPostNotificationsAsync(
+        Guid actorUserId,
+        Guid postId,
+        IReadOnlyCollection<Guid> excludedRecipientIds,
+        CancellationToken cancellationToken)
+    {
+        var excludedIds = excludedRecipientIds.ToHashSet();
+        var recipientIds = await dbContext.UserFollows
+            .AsNoTracking()
+            .Where(f => f.FollowingUserId == actorUserId && !excludedIds.Contains(f.FollowerUserId))
+            .Select(f => f.FollowerUserId)
+            .ToListAsync(cancellationToken);
+
+        if (recipientIds.Count == 0)
+        {
+            return;
+        }
+
+        var actorProfile = await dbContext.UserProfiles
+            .AsNoTracking()
+            .FirstAsync(p => p.UserId == actorUserId, cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        var notifications = recipientIds.Select(recipientId => new Notification
+        {
+            Id = Guid.NewGuid(),
+            RecipientUserId = recipientId,
+            ActorUserId = actorUserId,
+            Type = NotificationType.FollowedUserPosted,
+            PostId = postId,
+            CommentId = null,
+            IsRead = false,
+            CreatedAt = now,
+        }).ToList();
+
+        dbContext.Notifications.AddRange(notifications);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var actorDto = new NotificationActorDto(
+            actorProfile.UserId,
+            actorProfile.Username,
+            actorProfile.DisplayName,
+            actorProfile.AvatarUrl);
+        foreach (var notification in notifications)
+        {
+            var dto = new NotificationDto(
+                notification.Id,
+                notification.Type.ToString(),
+                notification.IsRead,
+                notification.CreatedAt,
+                actorDto,
+                notification.RecipientUserId,
+                notification.PostId,
+                notification.CommentId,
+                null,
+                null,
+                null);
+            await notifier.NotifyNotificationCreatedAsync(dto, cancellationToken);
+        }
+    }
+
     public async Task CreateBadgeUnlockedNotificationAsync(
         Guid userId,
         BadgeType badgeType,

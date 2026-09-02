@@ -5,6 +5,7 @@ public enum NotificationType
     PostMention,
     CommentMention,
     NewFollower,
+    FollowedUserPosted,
     BadgeUnlocked,
     LfgApplicationReceived
 }
