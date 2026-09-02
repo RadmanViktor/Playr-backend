@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<Playr.Application.Auth.JwtTokenGenerator>();
         services.AddScoped<Playr.Application.Auth.IAuthService, Playr.Infrastructure.Auth.AuthService>();
         services.AddScoped<Playr.Application.Profiles.IProfileService, Playr.Infrastructure.Profiles.ProfileService>();
+        services.AddScoped<Playr.Application.Profiles.IPublicLookingForGameService, Playr.Infrastructure.Profiles.PublicLookingForGameService>();
         services.AddScoped<Playr.Application.Games.IGameService, Playr.Infrastructure.Games.GameService>();
         services.AddScoped<Playr.Application.Games.IGameLibraryService, Playr.Infrastructure.Games.GameLibraryService>();
         services.AddScoped<Playr.Application.Games.IPlayingNowService, Playr.Infrastructure.Games.PlayingNowService>();
